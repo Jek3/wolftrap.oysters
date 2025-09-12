@@ -1,0 +1,22 @@
+.wl .wl-gf-gallery{
+	display: inline-block;
+	width: 100%; 
+}
+.wl a.wl-gf-single-image {
+	outline: none;
+}
+.wl .wl-gf-single-image img {
+	width: 100%;
+	height: auto;
+	cursor: pointer;
+}
+.wl .fancybox-next span {
+	left: auto;
+	right: 20px;
+}
+.wl .fancybox-prev span {
+	left: 20px;
+}
+.wl .wl-gf-single-wrapper {
+	margin: 10px 0;
+}

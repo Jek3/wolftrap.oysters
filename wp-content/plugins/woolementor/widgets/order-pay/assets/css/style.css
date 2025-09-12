@@ -1,0 +1,17 @@
+.wl .wl-order-pay table.shop_table {
+	width: 100%;
+	margin-bottom: 20px;
+}
+.wl .wl-order-pay table tr td {
+	border: 1px solid #ccc;
+	font-size: 14px;
+}
+.wl .wl-order-pay thead tr {
+	background: transparent;
+	color: #000;
+	border: 1px solid #ccc;
+}
+.wl .wl-order-pay thead tr th {
+	font-size: 14px;
+	border: none;
+}

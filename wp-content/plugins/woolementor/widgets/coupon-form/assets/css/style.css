@@ -1,0 +1,45 @@
+.wl-cf-apply-coupon {
+	display: flex;
+	align-items: center;
+	justify-content: end;
+}
+.wl-cf-apply-coupon-fields {
+	position: relative;
+	width: 100%;
+}
+.wl-cf-apply-coupon-input.input-text {
+	width: 100%;
+	padding: 10px;
+	border: 1px solid transparent;
+	padding-left: 18px;
+	font-size: 14px;
+	background: #eee;
+	outline: none;
+}
+.wl-cf-apply-coupon-button.button {
+	position: absolute;
+	right: 0;
+	padding: 10px 30px;
+	border: 1px solid transparent;
+	cursor: pointer;
+	bottom: 0;
+	top: 0;
+	color: #fff;
+	background-color: #584899;
+	transition: .4s;
+	font-size: 14px;
+}
+.wl-cf-apply-coupon-button.button:focus{
+	border-color: transparent;
+	outline: none;
+}
+.wl-cf-apply-coupon-button.button :hover{
+	background: #e9345f;
+}
+.wl-cf-apply-coupon-button.button:hover {
+	color: #fff;
+	background-color: #E9345F;
+}
+.wl .checkout_coupon.woocommerce-form-coupon {
+	display: block !important;
+}

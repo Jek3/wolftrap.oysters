@@ -1,0 +1,226 @@
+.wl-pt-pricing-heading {
+	font-family: "Roboto", Sans-serif;
+	font-size: 38px;
+	text-align: center;
+	margin: 19px 0;
+}
+.wl-pt-pricing-table-area {
+	display: flex;
+	justify-content: center;
+	font-family: "Roboto", Sans-serif;
+	margin-bottom: 25px;
+}
+.wl-pt-single-pricing {
+	border: 1px solid transparent;
+	transition: 0.5s;
+}
+.wl-pt-single-pricing:hover {
+	border: 1px solid #5a2ed2;
+}
+.wl-pt-single-pricing {
+	background-color: #fff;
+	text-align: center;
+	padding: 45px;
+	border-radius: 10px; 
+	position: relative;
+	clear: both;
+	padding-top: 0;
+	margin-top: 30px;
+	box-shadow: 0 .2rem 2.8rem rgba(36,36,36,.1);
+}
+.wl-pt-pricing-box {
+	border: 1px solid #B4B4B4;
+	border-radius: 10px;
+	position: relative;
+	top: -30px;
+	background: #fff;
+}
+.pt-featured .wl-pt-pricing-box {
+	border: none;
+}
+.wl-pt-pricing-icon {
+	line-height: 1;
+	color: #5A2ED2;
+}
+.wl-pt-pricing-name {
+	color: #212121;
+	font-size: 13px;
+	line-height: 1;
+	margin-top: 25px;
+	margin-bottom: 15px;
+	text-transform: uppercase;
+}
+.wl-pt-pricing-price {
+	font-size: 30px;
+	line-height: 1;
+	color: #212121;
+}
+del .wl-pt-pricing-price{
+	font-size: 14px;
+}
+del .wl-pt-regular-price sup {
+    top: -1px;
+}
+.wl-pt-pricing-wrap del sup {
+	font-size: 11px;	
+}
+.wl-pt-pricing-wrap sup {
+	top: -11px;
+	font-size: 16px;
+}
+.wl-pt-sale-price-wrap .wl-pt-pricing-sell-price{
+	font-size: 30px;
+}
+.wl-pt-pricing-list {
+	overflow: hidden;
+	width: 100%;
+	clear: both;
+}
+.wl-pt-pricing-list ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.wl-pt-pricing-list ul li {
+	font-size: 13px;
+	color: #212121;
+	display: block;
+	margin-bottom: 15px;
+}
+.wl-pt-pricing-list ul li i {
+	padding-right: 5px;
+	color: #5A2ED2;
+}
+.pt-featured .wl-pt-pricing-box {
+	background: #5A2ED2;
+	color: #fff;
+	border-color: #5A2ED2;
+	position: relative;
+	overflow: hidden;
+}
+
+.pt-featured .wl-pt-pricing-icon {
+	color: #fff;
+}
+.pt-featured .wl-pt-pricing-name,
+.pt-featured .wl-pt-pricing-price {
+	color: #fff;
+}
+.wl-pt-single-pricing a.price-btn {
+	font-size: 13px;
+	color: #fff;
+	background: #E2498A;
+	text-transform: uppercase;
+	text-decoration: none;
+	border: 0;
+	border-radius: 25px;
+	height: 34px;
+	display: inline-block;
+	text-align: center;
+	cursor: pointer;
+	padding: 0 30px;
+	position: absolute;
+	left: 0;
+	right: 0;
+	margin: auto;
+	bottom: -16px;
+	outline: 0;
+	width: 160px;
+	line-height: 34px;
+	transition: .4s;
+	z-index: 999;
+}
+.wl-pt-single-pricing {
+	flex-grow: 1;
+	flex-basis: 0;
+}
+.wl-pt-pricing-period {
+	font-size: 13px;
+}
+.wl-pt-featured-badge-text {
+	width: 107px;
+	background: #E2498A;
+	position: absolute;
+	top: 20px;
+	left: -22px;
+	text-align: center;
+	line-height: 20px;
+	letter-spacing: 1px;
+	color: #ffffff;
+	font-size: 12px;
+	transform: rotate(-45deg);
+	-webkit-transform: rotate(-45deg);
+	font-family: "Roboto", Sans-serif;
+	z-index: 999;
+}
+
+/* Custom, iPhone Retina */
+@media only screen and (min-width: 320px) {
+	.wl-pt-pricing-table-area {
+		flex-direction: column;
+	}
+	.wl-pt-pricing-icon {
+		font-size: 40px;
+	}
+	.wl-pt-single-pricing {
+		padding: 40px;
+		padding-top: 0;
+	}
+	.wl-pt-pricing-box {
+		padding: 25px 40px;
+	}
+}
+
+/* Super Small Devices, Phones */
+@media only screen and (min-width: 480px) {
+	.wl-pt-single-pricing {
+	}
+}
+
+/* Small Devices, Tablets */
+@media only screen and (min-width: 768px) {
+	.wl-pt-pricing-table-area {
+		flex-direction: row;
+	}
+	.wl-pt-single-pricing {
+		padding: 25px;
+		padding-top: 0;
+	}
+	.wl-pt-pricing-box {
+		padding: 15px 35px;
+	}
+	.wl-pt-pricing-name {
+		margin-top: 15px;
+	}
+	.wl-pt-pricing-icon {
+		font-size: 52px;
+	}
+	.wl-pt-pricing-list ul li {
+		font-size: 13px;
+	}
+	.pt-featured {
+	}
+}
+
+/* Medium Devices, Desktops */
+@media only screen and (min-width: 992px) {
+	.wl-pt-single-pricing {
+		padding: 45px;
+		padding-top: 0;
+	}
+	.wl-pt-pricing-box {
+		padding: 20px 45px;
+	}
+	.wl-pt-pricing-list ul li {
+		font-size: 13px;
+	}
+}
+
+/* Medium Devices, Desktops */
+@media only screen and (min-width: 1024px) {
+	.wl-pt-single-pricing {
+	}
+	.wl-pt-pricing-box {
+		padding: 20px 10px;
+	}
+}

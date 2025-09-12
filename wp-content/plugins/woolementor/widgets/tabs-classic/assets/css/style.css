@@ -1,0 +1,53 @@
+.wl .wl-tc-wrapper{
+  display:flex;
+  flex-direction: column;
+  align-items: center;
+}
+.wl .wl-tc-tab{
+  cursor: pointer;
+  padding:10px 20px;
+  margin:0px 2px;
+  background:#E9345F;
+  display:inline-block;
+  color:#fff;
+  border-radius:3px 3px 0px 0px;
+  box-shadow: 0 0.5rem 0.8rem #00000080;
+}
+.wl .wl-tc-panels{
+  background:#fffffff6;
+  box-shadow: 0 1rem 1rem #00000080;
+  min-height:200px;
+  width:100%;
+  border-radius:3px;
+  overflow:hidden;
+  overflow-y: scroll;
+  padding:20px;  
+}
+.wl .wl-tc-panel{
+  display:none;
+  animation: fadein .8s;
+}
+@keyframes fadein {
+    from {
+        opacity:0;
+    }
+    to {
+        opacity:1;
+    }
+}
+.wl .wl-tc-panel-title{
+  font-size:1.5em;
+  font-weight:bold
+}
+.wl .wl-tc-radio{
+  display:none;
+}
+
+.wl .wl-tc-radio:checked ~ .wl-tc-tabs .wl-tc-tab-active{
+  background:#fffffff6 !important;
+  color:#E9345F;
+  border-top: 3px solid #E9345F;
+}
+.wl .wl-tc-radio:checked ~ .wl-tc-panels .wl-tc-panel-active{
+  display:block
+}

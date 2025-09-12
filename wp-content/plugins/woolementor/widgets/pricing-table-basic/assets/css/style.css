@@ -1,0 +1,138 @@
+.wl-ptb-pricing-table-area {
+	display: flex;
+	justify-content: center;
+	font-family: "Roboto", Sans-serif;
+}
+.wl-ptb-single-pricing {
+	background-color: transparent;
+	text-align: center;
+	padding: 45px;
+	position: relative;
+	clear: both;
+	padding-top: 0;
+}
+.wl-ptb-pricing-box {
+	background: transparent;
+	padding: 20px;
+	border-bottom: 1px solid #e8e8e8;
+	margin-bottom: 20px;
+	padding-top: 0px;
+}
+.wl-ptb-pricing-name {
+	color: #212121;
+	font-size: 30px;
+	line-height: 1;
+	margin-top: 25px;
+	margin-bottom: 15px;
+	text-transform: uppercase;
+	font-weight: bold;
+}
+.wl-ptb-pricing-price {
+	font-size: 20px;
+	line-height: 1;
+	color: #212121;
+}
+
+.wl-ptb-pricing-price sup {
+	font-size: 15px;
+}
+.wl-ptb-pricing-list {
+	overflow: hidden;
+	width: 100%;
+	clear: both;
+}
+.wl-ptb-pricing-list ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.wl-ptb-pricing-list ul li {
+	font-size: 13px;
+	color: #212121;
+	display: block;
+	margin-bottom: 15px;
+}
+.wl-ptb-pricing-list ul li i {
+	padding-right: 5px;
+	color: #5A2ED2;
+}
+.wl-ptb-single-pricing a.price-btn {
+	font-size: 12px;
+	color: #fff;
+	background: #E2498A;
+	text-transform: uppercase;
+	text-decoration: none;
+	border: 0;
+	border-radius: 25px;
+	height: 34px;
+	display: inline-block;
+	text-align: center;
+	cursor: pointer;
+	padding: 0 30px;
+	outline: 0;
+	width: 160px;
+	line-height: 34px;
+	transition: .4s;
+	z-index: 999;
+	margin: 12px auto;
+}
+.wl-ptb-single-pricing {
+	flex-grow: 1;
+	flex-basis: 0;
+	background: transparent;
+	border: 1px solid #e8e8e8;
+}
+.wl-ptb-pricing-period {
+	font-size: 13px;
+}
+/* Custom, iPhone Retina */
+@media only screen and (min-width: 320px) {
+	.wl-ptb-pricing-table-area {
+		flex-direction: column;
+	}
+	.wl-ptb-single-pricing {
+		padding: 40px;
+		padding-top: 0;
+	}
+}
+
+/* Super Small Devices, Phones */
+@media only screen and (min-width: 480px) {
+	.wl-ptb-single-pricing {
+	}
+}
+
+/* Small Devices, Tablets */
+@media only screen and (min-width: 768px) {
+	.wl-ptb-pricing-table-area {
+		flex-direction: row;
+	}
+	.wl-ptb-single-pricing {
+		padding: 25px;
+		padding-top: 0;
+	}
+	.wl-ptb-pricing-name {
+		margin-top: 15px;
+	}
+	/*.wl-ptb-pricing-list ul li {
+		font-size: 12px;
+	}*/
+	.pt-featured {
+	}
+}
+
+/* Medium Devices, Desktops */
+@media only screen and (min-width: 992px) {
+	.wl-ptb-single-pricing {
+		padding: 15px 20px;
+	}
+	/*.wl-ptb-pricing-list ul li {
+		font-size: 15px;
+	}*/
+}
+
+/* Medium Devices, Desktops */
+@media only screen and (min-width: 1024px) {
+	.wl-ptb-single-pricing {
+	}
+}

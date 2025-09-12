@@ -1,0 +1,40 @@
+.wl .wl-cart-overview .wl-co-title{
+	font-weight: 400;
+}
+.wl.theme-Divi table{
+	width: 100%
+}
+.wl .wl-cart-overview table tr td, .wl .wl-cart-overview table tr th {
+	border: 1px solid #ccc;
+	background: transparent;
+}
+.wl .wl-cart-overview table tr:hover td, .wl .wl-cart-overview table tr:hover th{
+	background: #c1c1c13d;
+}
+.wl .wl-cart-overview table tr td ul{
+	list-style: none;
+	padding-left: 20px;
+}
+.wl .wl-cart-overview .wc-proceed-to-checkout {
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+	justify-content: end;
+	margin-bottom: 0;
+	margin-top: 0;
+	padding: 0;
+}
+.wl .wl-cart-overview .wc-proceed-to-checkout a.checkout-button {
+	padding: 10px;
+	font-size: 14px;
+	letter-spacing: 1px;
+	font-family: "Roboto", Sans-serif;
+	color: #fff;
+	background: #E9345F;
+	cursor: pointer;
+	transition: .4s;
+	width: 100%;
+	text-align: center;
+	display: none;
+	margin-bottom: 0;
+}

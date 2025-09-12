@@ -1,0 +1,263 @@
+.wl-crvc-review-single {
+    border: 1px solid #ddd;
+    background: #fff;
+    position: relative;
+    font-family: "Roboto", Sans-serif;
+    border-radius: 10px;
+    margin: 45px 10px;
+    margin-bottom: 0;
+}
+.wl-crvc-review-img img {
+    max-width: 100%;
+    border-radius: 100%;
+    margin: auto;
+    width: 90px;
+    height: 90px;
+}
+.wl-crvc-review-inner {
+    padding: 15px;
+    margin-top: 70px;
+}
+.wl-crvc-review-img {
+    border-radius: 100%;
+    margin: auto;
+    position: absolute;
+    top: -45px;
+    left: 0;
+    right: 0;
+}
+.wl-crvc-review-author h3 {
+    margin: 0;
+    line-height: 1;
+    font-size: 17px;
+}
+.wl-crvc-review-author-details span {
+    color: #F2295B;
+    font-size: 13px;
+}
+.wl-crvc-review-author-rating {
+    display: inline-block;
+    font-size: 11px;
+    background: #FFF2DE;
+    border-radius: 10px;
+    padding: 2px 15px;
+    border: 1px solid #ffa620;
+}
+.wl-crvc-review-author-rating i {
+    color: #FFA620;
+    margin-right: 3px;
+}
+.wl-crvc-review-author-details {
+    padding-left: 50px;
+    margin-bottom: 15px;
+}
+.wl-crvc-review-date {
+    color: #A7A7A7;
+    font-size: 12px;
+    font-family: intermedium;
+}
+.wl-crvc-review-details {
+    font-size: 13px;
+    margin: 25px 0;
+}
+.wl-crvc-review-details p {
+    margin: 0;
+    line-height: 24px;
+}
+.wl-crvc-review-inner{position:relative;}
+/* quotetion */
+.wl-crvc-review-inner:before, .wl-crvc-review-inner:after {
+    font-family: fontAwesome;
+    width: 35px;
+    height: 35px;
+    line-height: 35px;
+    border-radius: 8px;
+    text-align: center;
+    color: #E2498A;
+    position: absolute;
+    font-size: 30px;
+}
+.wl-crvc-review-inner:before{
+    content: "\f10d ";
+    top: 2px;
+    left: 15px;
+}
+.wl-crvc-review-inner:after{
+    content: "\f10e";
+    bottom: 11px;
+    right: 15px;
+}
+/* right img */
+.wl-right .wl-crvc-review-img {
+    right: 25px;
+    left: auto;
+}
+.wl-left .wl-crvc-review-img {
+    left: 25px;
+    right: auto;
+}
+.center-all .wl-crvc-review-img {
+    right: 0;
+    left: 0;
+}
+.center .wl-crvc-review-inner{text-align: center;}
+.center .wl-crvc-review-author-details{padding-left:0;}
+
+/* hover
+ */
+.wl-crvc-review-single:hover{background:#E2498A;color:#fff; transition-duration: .6s; border-color: #E2498A;}
+.wl-crvc-review-single:hover .wl-crvc-review-author-rating{background:#fff; transition-duration: .6s;}
+.wl-crvc-review-single:hover .wl-crvc-review-author-rating strong{color:#000; transition-duration: .6s;}
+.wl-crvc-review-single:hover .wl-crvc-review-author-details span {color:#fff; transition-duration: .6s;}
+.wl-crvc-review-single:hover .wl-crvc-review-date {color: #d2d2d2; transition-duration: .6s;}
+.wl-crvc-review-single:hover .wl-crvc-review-inner:before, .wl-crvc-review-single:hover .wl-crvc-review-inner:after {color: #fff; transition-duration: .6s;}
+
+/* Review 2 */
+.cr2 {
+    max-width: 380px;
+}
+.cr2 .wl-crvc-review-author-details {
+    padding-left: 0;
+    margin: 0;
+}
+.cr2 .wl-crvc-review-author {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.cr2 .wl-crvc-review-inner {
+    margin-top: 35px;
+}
+
+.cr2 .wl-crvc-review-details {
+    margin: 10px 0;
+}
+.cr2 .wl-crvc-review-img {
+    top: -35px;
+}
+.cr2 .wl-crvc-review-inner:before, .cr2 .wl-crvc-review-inner:after {
+    content: " ";
+}
+
+/* Cr2 Right */
+.right.cr2 .wl-crvc-review-author {
+    flex-direction: row-reverse;
+}
+.right.cr2 .wl-crvc-review-author-details {
+    text-align: right;
+}
+.right.cr2 .wl-crvc-review-details {
+    text-align: right;
+}
+.right.cr2  .wl-crvc-review-date {
+    text-align: right;
+}
+
+/*slick slider*/
+.wl-crvc-review-silder .slick-prev.slick-arrow {
+    position: absolute;
+    left: 20px;
+    z-index: 9999;
+}
+.wl-crvc-review-silder .slick-next.slick-arrow {
+    position: absolute;
+    right: 20px;
+    z-index: 9999;
+}
+.slick-prev::before, .slick-next::before {
+    color: #f00 !important;
+}
+.wl-crvc-review-silder .slick-next, .wl-crvc-review-silder .slick-prev {
+    z-index: 999;
+    padding: 0;
+    border: 1px solid rgba(147, 140, 140, 0.8);
+    border-radius: 50%;
+    background-color: rgba(255,255,255,.8);
+    color: #8c8c8c;
+    text-align: center;
+    font-size: 12px;
+    opacity: 1;
+}
+.wl-crvc-review-silder .slick-next::before, .wl-crvc-review-silder .slick-prev::before {
+    content: "";
+}
+.wl-crvc-review-silder .slick-next, .wl-crvc-review-silder .slick-prev {
+    width: 50px;
+    height: 50px;
+    line-height: 50px;
+}
+.wl-crvc-review-silder .slick-dots li button::before {
+    color: #1b1b1b;
+    opacity: 1;
+}
+.wl-crvc-review-silder .slick-dots .slick-active button::before, .wl-crvc-review-silder .slick-dots li button:hover::before {
+    -webkit-transform: scale(1.5);
+    -ms-transform: scale(1.5);
+    transform: scale(1.5);
+}
+.slick-dots {
+    position: absolute;
+    bottom: -25px;
+    list-style: none;
+    display: block;
+    text-align: center;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+}
+.slick-dots li {
+    position: relative;
+    display: inline-block;
+    height: 20px;
+    width: 20px;
+    margin: 0 5px;
+    padding: 0;
+    cursor: pointer;
+}
+.slick-dots li button {
+    border: 0;
+    background: transparent;
+    display: block;
+    height: 20px;
+    width: 20px;
+    outline: none;
+    line-height: 0px;
+    font-size: 0px;
+    color: transparent;
+    padding: 5px;
+    cursor: pointer;
+}
+.slick-dots li button::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    content: "•";
+    width: 20px;
+    height: 20px;
+    font-family: "slick";
+    font-size: 20px;
+    line-height: 20px;
+    text-align: center;
+    color: black;
+    opacity: 0.25;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+.slick-prev, .slick-next {
+    position: absolute;
+    display: block;
+    height: 20px;
+    width: 20px;
+    line-height: 0px;
+    font-size: 0px;
+    cursor: pointer;
+    background: transparent;
+    color: transparent;
+    top: 50%;
+    -webkit-transform: translate(0, -50%);
+    transform: translate(0, -50%);
+    padding: 0;
+    border: none;
+    outline: none;
+}
+/*end slick slider*/

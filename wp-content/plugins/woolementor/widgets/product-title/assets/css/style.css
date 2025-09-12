@@ -1,0 +1,24 @@
+.wl .wl-product-title {
+	text-align: center;
+	color: #E2498A;
+	font-family: "Roboto", Sans-serif;
+	font-weight: normal;
+}
+.wl h1.wl-product-title {
+	font-size: 62px;
+}
+.wl h2.wl-product-title {
+	font-size: 48px;
+}
+.wl h3.wl-product-title {
+	font-size: 42px;
+}
+.wl h4.wl-product-title {
+	font-size: 32px;
+}
+.wl h5.wl-product-title {
+	font-size: 24px;
+}
+.wl h6.wl-product-title {
+	font-size: 18px;
+}
