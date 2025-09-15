@@ -2,20 +2,20 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "WolfTrapOysters",
+            "name": "WolfTrapOysters (Built-in server)",
             "type": "php",
             "request": "launch",
-            "program": "${workspaceFolder}/index.php",
-            "runtimeExecutable": "php",
+            "program": "${workspaceFolder}/router.php",
+            "runtimeExecutable": "C:/php8.3/php.exe",
             "runtimeArgs": [
                 "-S",
-                "localhost:8000",
+                "127.0.0.1:8081",
                 "-t",
                 "${workspaceFolder}"
             ],
-            "port": 8000,
             "cwd": "${workspaceFolder}",
-            "stopOnEntry": false
+            "stopOnEntry": false,
+            "internalConsoleOptions": "neverOpen"
         }
     ]
 }

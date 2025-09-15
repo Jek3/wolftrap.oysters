@@ -59,17 +59,41 @@ class Filterer {
 	public function filter_by_attribute_post_clauses( array $args, \WP_Query $wp_query, array $attributes_to_filter_by ) {
 		global $wpdb;
 
-		if ( ! $wp_query->is_main_query() || ! $this->filtering_via_lookup_table_is_active() ) {
+		/**
+		 * Filter whether to add the filter post clauses
+		 *
+		 * @param bool     $is_main_query Whether the current query is 'is_main_query'.
+		 * @param WP_Query $wp_query      The current WP_Query object.
+		 *
+		 * @since 9.9.0
+		 */
+		$enable_filtering = apply_filters( 'woocommerce_enable_post_clause_filtering', $wp_query->is_main_query(), $wp_query );
+
+		if ( ! $enable_filtering || ! $this->filtering_via_lookup_table_is_active() ) {
 			return $args;
 		}
 
-		$clause_root = " {$wpdb->prefix}posts.ID IN (";
-		if ( 'yes' === get_option( 'woocommerce_hide_out_of_stock_items' ) ) {
+		// The extra derived table ("SELECT product_or_parent_id FROM") is needed for performance
+		// (causes the filtering subquery to be executed only once).
+		$clause_root = " {$wpdb->posts}.ID IN ( SELECT product_or_parent_id FROM (";
+
+		/**
+		 * Filters the woocommerce_hide_out_of_stock_items option to override the default behavior in product filtering by attribute.
+		 *
+		 * @param bool $option_value The behavior configured in WooCommerce settings.
+		 * @return bool The behavior to use in the catalog when product filtering by attribute.
+		 *
+		 * @since 9.8.0.
+		 */
+		$hide_out_of_stock = apply_filters( 'woocommerce_product_attributes_filterer_hide_out_of_stock', 'yes' === get_option( 'woocommerce_hide_out_of_stock_items' ) );
+		if ( $hide_out_of_stock ) {
 			$in_stock_clause = ' AND in_stock = 1';
 		} else {
 			$in_stock_clause = '';
 		}
 
+		$attribute_ids_for_and_filtering = array();
+		$clauses                         = array();
 		foreach ( $attributes_to_filter_by as $taxonomy => $data ) {
 			$all_terms                  = get_terms( $taxonomy, array( 'hide_empty' => false ) );
 			$term_ids_by_slug           = wp_list_pluck( $all_terms, 'term_id', 'slug' );
@@ -79,24 +103,10 @@ class Filterer {
 			$is_and_query               = 'and' === $data['query_type'];
 
 			$count = count( $term_ids_to_filter_by );
+
 			if ( 0 !== $count ) {
-				if ( $is_and_query ) {
-					$clauses[] = "
-						{$clause_root}
-						SELECT product_or_parent_id
-						FROM {$this->lookup_table_name} lt
-						WHERE is_variation_attribute=0
-						{$in_stock_clause}
-						AND term_id in {$term_ids_to_filter_by_list}
-						GROUP BY product_id
-						HAVING COUNT(product_id)={$count}
-						UNION
-						SELECT product_or_parent_id
-						FROM {$this->lookup_table_name} lt
-						WHERE is_variation_attribute=1
-						{$in_stock_clause}
-						AND term_id in {$term_ids_to_filter_by_list}
-					)";
+				if ( $is_and_query && $count > 1 ) {
+					$attribute_ids_for_and_filtering = array_merge( $attribute_ids_for_and_filtering, $term_ids_to_filter_by );
 				} else {
 					$clauses[] = "
 							{$clause_root}
@@ -109,8 +119,32 @@ class Filterer {
 			}
 		}
 
+		if ( ! empty( $attribute_ids_for_and_filtering ) ) {
+			$count                      = count( $attribute_ids_for_and_filtering );
+			$term_ids_to_filter_by_list = '(' . join( ',', $attribute_ids_for_and_filtering ) . ')';
+			$clauses[]                  = "
+				{$clause_root}
+				SELECT product_or_parent_id
+				FROM {$this->lookup_table_name} lt
+				WHERE is_variation_attribute=0
+				{$in_stock_clause}
+				AND term_id in {$term_ids_to_filter_by_list}
+				GROUP BY product_id
+				HAVING COUNT(product_id)={$count}
+				UNION
+				SELECT product_or_parent_id
+				FROM {$this->lookup_table_name} lt
+				WHERE is_variation_attribute=1
+				{$in_stock_clause}
+				AND term_id in {$term_ids_to_filter_by_list}
+				GROUP BY product_or_parent_id
+				HAVING COUNT(DISTINCT term_id)={$count}
+			)";
+		}
+
 		if ( ! empty( $clauses ) ) {
-			$args['where'] .= ' AND (' . join( ' AND ', $clauses ) . ')';
+			// "temp" is needed because the extra derived tables require an alias.
+			$args['where'] .= ' AND (' . join( ' temp ) AND ', $clauses ) . ' temp ))';
 		} elseif ( ! empty( $attributes_to_filter_by ) ) {
 			$args['where'] .= ' AND 1=0';
 		}
@@ -189,23 +223,34 @@ class Filterer {
 	private function get_product_counts_query_using_lookup_table( $tax_query, $meta_query, $taxonomy, $term_ids ) {
 		global $wpdb;
 
-		$meta_query_sql    = $meta_query->get_sql( 'post', $this->lookup_table_name, 'product_or_parent_id' );
-		$tax_query_sql     = $tax_query->get_sql( $this->lookup_table_name, 'product_or_parent_id' );
-		$hide_out_of_stock = 'yes' === get_option( 'woocommerce_hide_out_of_stock_items' );
+		$meta_query_sql = $meta_query->get_sql( 'post', $this->lookup_table_name, 'product_or_parent_id' );
+		$tax_query_sql  = $tax_query->get_sql( $this->lookup_table_name, 'product_or_parent_id' );
+
+		/**
+		 * Filters the woocommerce_hide_out_of_stock_items option to override the default behavior in product filtering by attribute.
+		 *
+		 * @param bool $option_value The behavior configured in WooCommerce settings.
+		 * @return bool The behavior to use in the catalog when product filtering by attribute.
+		 *
+		 * @since 9.5.0.
+		 */
+		$hide_out_of_stock = apply_filters( 'woocommerce_product_attributes_filterer_hide_out_of_stock', 'yes' === get_option( 'woocommerce_hide_out_of_stock_items' ) );
 		$in_stock_clause   = $hide_out_of_stock ? ' AND in_stock = 1' : '';
 
+		$query           = array();
 		$query['select'] = 'SELECT COUNT(DISTINCT product_or_parent_id) as term_count, term_id as term_count_id';
 		$query['from']   = "FROM {$this->lookup_table_name}";
 		$query['join']   = "
 			{$tax_query_sql['join']} {$meta_query_sql['join']}
 			INNER JOIN {$wpdb->posts} ON {$wpdb->posts}.ID = {$this->lookup_table_name}.product_or_parent_id";
 
-		$term_ids_sql   = $this->get_term_ids_sql( $term_ids );
-		$query['where'] = "
+		$encoded_taxonomy = sanitize_title( $taxonomy );
+		$term_ids_sql     = $this->get_term_ids_sql( $term_ids );
+		$query['where']   = "
 			WHERE {$wpdb->posts}.post_type IN ( 'product' )
 			AND {$wpdb->posts}.post_status = 'publish'
 			{$tax_query_sql['where']} {$meta_query_sql['where']}
-			AND {$this->lookup_table_name}.taxonomy='{$taxonomy}'
+			AND {$this->lookup_table_name}.taxonomy='{$encoded_taxonomy}'
 			AND {$this->lookup_table_name}.term_id IN $term_ids_sql
 			{$in_stock_clause}";
 
@@ -214,24 +259,24 @@ class Filterer {
 
 			if ( ! empty( $attributes_to_filter_by ) ) {
 				$and_term_ids = array();
-				$or_term_ids  = array();
 
 				foreach ( $attributes_to_filter_by as $taxonomy => $data ) {
+					if ( 'and' !== $data['query_type'] ) {
+						continue;
+					}
 					$all_terms             = get_terms( $taxonomy, array( 'hide_empty' => false ) );
 					$term_ids_by_slug      = wp_list_pluck( $all_terms, 'term_id', 'slug' );
 					$term_ids_to_filter_by = array_values( array_intersect_key( $term_ids_by_slug, array_flip( $data['terms'] ) ) );
-					if ( 'and' === $data['query_type'] ) {
-						$and_term_ids = array_merge( $and_term_ids, $term_ids_to_filter_by );
-					} else {
-						$or_term_ids = array_merge( $or_term_ids, $term_ids_to_filter_by );
-					}
+					$and_term_ids          = array_merge( $and_term_ids, $term_ids_to_filter_by );
 				}
 
 				if ( ! empty( $and_term_ids ) ) {
-					$terms_count     = count( $and_term_ids );
-					$term_ids_list   = '(' . join( ',', $and_term_ids ) . ')';
+					$terms_count   = count( $and_term_ids );
+					$term_ids_list = '(' . join( ',', $and_term_ids ) . ')';
+					// The extra derived table ("SELECT product_or_parent_id FROM") is needed for performance
+					// (causes the filtering subquery to be executed only once).
 					$query['where'] .= "
-						AND product_or_parent_id IN (
+						AND product_or_parent_id IN ( SELECT product_or_parent_id FROM (
 							SELECT product_or_parent_id
 							FROM {$this->lookup_table_name} lt
 							WHERE is_variation_attribute=0
@@ -245,18 +290,9 @@ class Filterer {
 							WHERE is_variation_attribute=1
 							{$in_stock_clause}
 							AND term_id in {$term_ids_list}
-						)";
-				}
-
-				if ( ! empty( $or_term_ids ) ) {
-					$term_ids_list   = '(' . join( ',', $or_term_ids ) . ')';
-					$query['where'] .= "
-						AND product_or_parent_id IN (
-							SELECT product_or_parent_id FROM {$this->lookup_table_name}
-							WHERE term_id in {$term_ids_list}
-							{$in_stock_clause}
-						)";
-
+							GROUP BY product_or_parent_id
+							HAVING COUNT(DISTINCT term_id)={$terms_count}
+						) temp )";
 				}
 			} else {
 				$query['where'] .= $in_stock_clause;

@@ -6,6 +6,9 @@
  * @version 3.2.0
  */
 
+use Automattic\WooCommerce\Enums\OrderStatus;
+use Automattic\WooCommerce\Enums\ProductType;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -33,22 +36,44 @@ final class WC_Cart_Session {
 	 *
 	 * @param WC_Cart $cart Cart object to calculate totals for.
 	 */
-	public function __construct( &$cart ) {
+	public function __construct( $cart ) {
 		if ( ! is_a( $cart, 'WC_Cart' ) ) {
 			throw new Exception( 'A valid WC_Cart object is required' );
 		}
 
+		$this->set_cart( $cart );
+	}
+
+	/**
+	 * Sets the cart instance.
+	 *
+	 * @param WC_Cart $cart Cart object.
+	 */
+	public function set_cart( WC_Cart $cart ) {
 		$this->cart = $cart;
 	}
+
 
 	/**
 	 * Register methods for this object on the appropriate WordPress hooks.
 	 */
 	public function init() {
+		/**
+		 * Filters whether hooks should be initialized for the current cart session.
+		 *
+		 * @param bool $must_initialize Will be passed as true, meaning that the cart hooks should be initialized.
+		 * @param bool $session The WC_Cart_Session object that is being initialized.
+		 * @returns bool True if the cart hooks should be actually initialized, false if not.
+		 *
+		 * @since 6.9.0
+		 */
+		if ( ! apply_filters( 'woocommerce_cart_session_initialize', true, $this ) ) {
+			return;
+		}
+
 		add_action( 'wp_loaded', array( $this, 'get_cart_from_session' ) );
 		add_action( 'woocommerce_cart_emptied', array( $this, 'destroy_cart_session' ) );
-		add_action( 'woocommerce_after_calculate_totals', array( $this, 'set_session' ) );
-		add_action( 'woocommerce_cart_loaded_from_session', array( $this, 'set_session' ) );
+		add_action( 'woocommerce_after_calculate_totals', array( $this, 'set_session' ), 1000 );
 		add_action( 'woocommerce_removed_coupon', array( $this, 'set_session' ) );
 
 		// Persistent cart stored to usermeta.
@@ -69,7 +94,13 @@ final class WC_Cart_Session {
 	 * @since 3.2.0
 	 */
 	public function get_cart_from_session() {
+		/**
+		 * Fires when cart is loaded from session.
+		 *
+		 * @since 3.2.0
+		 */
 		do_action( 'woocommerce_load_cart_from_session' );
+
 		$this->cart->set_totals( WC()->session->get( 'cart_totals', null ) );
 		$this->cart->set_applied_coupons( WC()->session->get( 'applied_coupons', array() ) );
 		$this->cart->set_coupon_discount_totals( WC()->session->get( 'coupon_discount_totals', array() ) );
@@ -92,9 +123,10 @@ final class WC_Cart_Session {
 		}
 
 		// Populate cart from order.
-		if ( isset( $_GET['order_again'], $_GET['_wpnonce'] ) && is_user_logged_in() && wp_verify_nonce( wp_unslash( $_GET['_wpnonce'] ), 'woocommerce-order_again' ) ) { // WPCS: input var ok, sanitization ok.
-			$cart        = $this->populate_cart_from_order( absint( $_GET['order_again'] ), $cart ); // WPCS: input var ok.
-			$order_again = true;
+		if ( isset( $_GET['order_again'], $_GET['_wpnonce'] ) && is_user_logged_in() && wp_verify_nonce( wp_unslash( $_GET['_wpnonce'] ), 'woocommerce-order_again' ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$cart                = $this->populate_cart_from_order( absint( $_GET['order_again'] ), $cart );
+			$order_again         = true;
+			$update_cart_session = true;
 		}
 
 		// Prime caches to reduce future queries.
@@ -120,15 +152,35 @@ final class WC_Cart_Session {
 			 *
 			 * @since 3.6.0
 			 *
-			 * @param bool $remove_cart_item_from_session If true, the item will not be added to the cart. Default: false.
-			 * @param string $key Cart item key.
-			 * @param array $values Cart item values e.g. quantity and product_id.
+			 * @param bool       $remove_cart_item_from_session If true, the item will not be added to the cart. Default: false.
+			 * @param string     $key Cart item key.
+			 * @param array      $values Cart item values e.g. quantity and product_id.
+			 * @param WC_Product $product The product being added to the cart.
 			 */
-			if ( apply_filters( 'woocommerce_pre_remove_cart_item_from_session', false, $key, $values ) ) {
+			if ( apply_filters( 'woocommerce_pre_remove_cart_item_from_session', false, $key, $values, $product ) ) {
 				$update_cart_session = true;
-				do_action( 'woocommerce_remove_cart_item_from_session', $key, $values );
+				/**
+				 * Fires when cart item is removed from the session.
+				 *
+				 * @since 3.6.0
+				 *
+				 * @param string     $key Cart item key.
+				 * @param array      $values Cart item values e.g. quantity and product_id.
+				 * @param WC_Product $product The product being added to the cart.
+				 */
+				do_action( 'woocommerce_remove_cart_item_from_session', $key, $values, $product );
 
-			} elseif ( ! $product->is_purchasable() ) {
+				/**
+				 * Allow 3rd parties to override this item's is_purchasable() result with cart item data.
+				 *
+				 * @param bool       $is_purchasable If false, the item will not be added to the cart. Default: product's is_purchasable() status.
+				 * @param string     $key Cart item key.
+				 * @param array      $values Cart item values e.g. quantity and product_id.
+				 * @param WC_Product $product The product being added to the cart.
+				 *
+				 * @since 7.0.0
+				 */
+			} elseif ( ! apply_filters( 'woocommerce_cart_item_is_purchasable', $product->is_purchasable(), $key, $values, $product ) ) {
 				$update_cart_session = true;
 				/* translators: %s: product name */
 				$message = sprintf( __( '%s has been removed from your cart because it can no longer be purchased. Please contact us if you need assistance.', 'woocommerce' ), $product->get_name() );
@@ -141,12 +193,38 @@ final class WC_Cart_Session {
 				 */
 				$message = apply_filters( 'woocommerce_cart_item_removed_message', $message, $product );
 				wc_add_notice( $message, 'error' );
+				/**
+				 * Fires when cart item is removed from the session.
+				 *
+				 * @since 3.6.0
+				 *
+				 * @param string     $key Cart item key.
+				 * @param array      $values Cart item values e.g. quantity and product_id.
+				 */
 				do_action( 'woocommerce_remove_cart_item_from_session', $key, $values );
-
 			} elseif ( ! empty( $values['data_hash'] ) && ! hash_equals( $values['data_hash'], wc_get_cart_item_data_hash( $product ) ) ) { // phpcs:ignore PHPCompatibility.PHP.NewFunctions.hash_equalsFound
 				$update_cart_session = true;
 				/* translators: %1$s: product name. %2$s product permalink */
-				wc_add_notice( sprintf( __( '%1$s has been removed from your cart because it has since been modified. You can add it back to your cart <a href="%2$s">here</a>.', 'woocommerce' ), $product->get_name(), $product->get_permalink() ), 'notice' );
+				$message = sprintf( __( '%1$s has been removed from your cart because it has since been modified. You can add it back to your cart <a href="%2$s">here</a>.', 'woocommerce' ), $product->get_name(), $product->get_permalink() );
+
+				/**
+				 * Filter message about item removed from the cart because it has since been modified.
+				 *
+				 * @since 3.8.0
+				 * @param string     $message Message.
+				 * @param WC_Product $product Product data.
+				 */
+				$message = apply_filters( 'woocommerce_cart_item_removed_because_modified_message', $message, $product );
+				wc_add_notice( $message, 'notice' );
+
+				/**
+				 * Fires when cart item is removed from the session.
+				 *
+				 * @since 3.6.0
+				 *
+				 * @param string     $key Cart item key.
+				 * @param array      $values Cart item values e.g. quantity and product_id.
+				 */
 				do_action( 'woocommerce_remove_cart_item_from_session', $key, $values );
 
 			} else {
@@ -158,7 +236,27 @@ final class WC_Cart_Session {
 					)
 				);
 
+				/**
+				 * Filter to modify or add session data to the cart contents.
+				 *
+				 * @since 3.2.0
+				 *
+				 * @param array  $session_data Data for an item in the cart.
+				 * @param array  $values       Data for an item in the cart, without the product object.
+				 * @param string $key          The cart item hash.
+				 */
 				$cart_contents[ $key ] = apply_filters( 'woocommerce_get_cart_item_from_session', $session_data, $values, $key );
+				if ( ! isset( $cart_contents[ $key ]['data'] ) || ! $cart_contents[ $key ]['data'] instanceof WC_Product ) {
+					// If the cart contents is missing the product object after filtering, something is wrong.
+					wc_doing_it_wrong(
+						__METHOD__,
+						'When filtering cart items with woocommerce_get_cart_item_from_session, each item must have a data key containing a product object.',
+						'9.8.0'
+					);
+
+					// Add the product back in.
+					$cart_contents[ $key ]['data'] = $product;
+				}
 
 				// Add to cart right away so the product is visible in woocommerce_get_cart_item_from_session hook.
 				$this->cart->set_cart_contents( $cart_contents );
@@ -167,13 +265,28 @@ final class WC_Cart_Session {
 
 		// If it's not empty, it's been already populated by the loop above.
 		if ( ! empty( $cart_contents ) ) {
+			/**
+			 * Filter the cart contents.
+			 *
+			 * @since 3.2.0
+			 *
+			 * @param array $cart_contents The cart contents.
+			 */
 			$this->cart->set_cart_contents( apply_filters( 'woocommerce_cart_contents_changed', $cart_contents ) );
 		}
 
+		/**
+		 * Fires when cart is loaded from session.
+		 *
+		 * @since 3.2.0
+		 *
+		 * @param WC_Cart $cart The cart object.
+		 */
 		do_action( 'woocommerce_cart_loaded_from_session', $this->cart );
 
 		if ( $update_cart_session || is_null( WC()->session->get( 'cart_totals', null ) ) ) {
-			WC()->session->set( 'cart', $this->get_cart_for_session() );
+			$cart_for_session = $this->get_cart_for_session();
+			WC()->session->set( 'cart', empty( $cart_for_session ) ? null : $cart_for_session );
 			$this->cart->calculate_totals();
 
 			if ( $merge_saved_cart ) {
@@ -194,41 +307,116 @@ final class WC_Cart_Session {
 	 * @since 3.2.0
 	 */
 	public function destroy_cart_session() {
-		WC()->session->set( 'cart', null );
-		WC()->session->set( 'cart_totals', null );
-		WC()->session->set( 'applied_coupons', null );
-		WC()->session->set( 'coupon_discount_totals', null );
-		WC()->session->set( 'coupon_discount_tax_totals', null );
-		WC()->session->set( 'removed_cart_contents', null );
-		WC()->session->set( 'order_awaiting_payment', null );
+		$wc_session = WC()->session;
+
+		$wc_session->set( 'cart', null );
+		$wc_session->set( 'cart_totals', null );
+		$wc_session->set( 'applied_coupons', null );
+		$wc_session->set( 'coupon_discount_totals', null );
+		$wc_session->set( 'coupon_discount_tax_totals', null );
+		$wc_session->set( 'removed_cart_contents', null );
+		$wc_session->set( 'order_awaiting_payment', null );
 	}
 
 	/**
 	 * Will set cart cookies if needed and when possible.
 	 *
+	 * Headers are only updated if headers have not yet been sent.
+	 *
 	 * @since 3.2.0
 	 */
 	public function maybe_set_cart_cookies() {
-		if ( ! headers_sent() && did_action( 'wp_loaded' ) ) {
-			if ( ! $this->cart->is_empty() ) {
-				$this->set_cart_cookies( true );
-			} elseif ( isset( $_COOKIE['woocommerce_items_in_cart'] ) ) { // WPCS: input var ok.
-				$this->set_cart_cookies( false );
+		if ( headers_sent() || ! did_action( 'wp_loaded' ) ) {
+			return;
+		}
+		if ( ! $this->cart->is_empty() ) {
+			$this->set_cart_cookies( true );
+		} elseif ( isset( $_COOKIE['woocommerce_items_in_cart'] ) ) { // WPCS: input var ok.
+			$this->set_cart_cookies( false );
+		}
+		$this->dedupe_cookies();
+	}
+
+	/**
+	 * Remove duplicate cookies from the response.
+	 */
+	private function dedupe_cookies() {
+		$all_cookies    = array_filter(
+			headers_list(),
+			function ( $header ) {
+				return stripos( $header, 'Set-Cookie:' ) !== false;
+			}
+		);
+		$final_cookies  = array();
+		$update_cookies = false;
+		foreach ( $all_cookies as $cookie ) {
+
+			list(, $cookie_value)             = explode( ':', $cookie, 2 );
+			list($cookie_name, $cookie_value) = explode( '=', trim( $cookie_value ), 2 );
+
+			if ( stripos( $cookie_name, 'woocommerce_' ) !== false ) {
+				$key = $this->find_cookie_by_name( $cookie_name, $final_cookies );
+				if ( false !== $key ) {
+					$update_cookies = true;
+					unset( $final_cookies[ $key ] );
+				}
+			}
+			$final_cookies[] = $cookie;
+		}
+
+		if ( $update_cookies ) {
+			header_remove( 'Set-Cookie' );
+			foreach ( $final_cookies as $cookie ) {
+				// Using header here preserves previous cookie args.
+				header( $cookie, false );
 			}
 		}
+	}
+
+	/**
+	 * Find a cookie by name in an array of cookies.
+	 *
+	 * @param  string $cookie_name Name of the cookie to find.
+	 * @param  array  $cookies     Array of cookies to search.
+	 * @return mixed               Key of the cookie if found, false if not.
+	 */
+	private function find_cookie_by_name( $cookie_name, $cookies ) {
+		foreach ( $cookies as $key => $cookie ) {
+			if ( strpos( $cookie, $cookie_name ) !== false ) {
+				return $key;
+			}
+		}
+		return false;
 	}
 
 	/**
 	 * Sets the php session data for the cart and coupons.
 	 */
 	public function set_session() {
-		WC()->session->set( 'cart', $this->get_cart_for_session() );
-		WC()->session->set( 'cart_totals', $this->cart->get_totals() );
-		WC()->session->set( 'applied_coupons', $this->cart->get_applied_coupons() );
-		WC()->session->set( 'coupon_discount_totals', $this->cart->get_coupon_discount_totals() );
-		WC()->session->set( 'coupon_discount_tax_totals', $this->cart->get_coupon_discount_tax_totals() );
-		WC()->session->set( 'removed_cart_contents', $this->cart->get_removed_cart_contents() );
+		$wc_session = WC()->session;
 
+		$cart                       = $this->get_cart_for_session();
+		$applied_coupons            = $this->cart->get_applied_coupons();
+		$coupon_discount_totals     = $this->cart->get_coupon_discount_totals();
+		$coupon_discount_tax_totals = $this->cart->get_coupon_discount_tax_totals();
+		$removed_cart_contents      = $this->cart->get_removed_cart_contents();
+
+		/*
+		 * We want to clear out any empty/default data from the session that have no value in being stored so the session
+		 * can be forgotten if empty.
+		 */
+		$wc_session->set( 'cart_totals', empty( $cart ) ? null : $this->cart->get_totals() );
+		$wc_session->set( 'cart', empty( $cart ) ? null : $cart );
+		$wc_session->set( 'applied_coupons', empty( $applied_coupons ) ? null : $applied_coupons );
+		$wc_session->set( 'coupon_discount_totals', empty( $coupon_discount_totals ) ? null : $coupon_discount_totals );
+		$wc_session->set( 'coupon_discount_tax_totals', empty( $coupon_discount_tax_totals ) ? null : $coupon_discount_tax_totals );
+		$wc_session->set( 'removed_cart_contents', empty( $removed_cart_contents ) ? null : $removed_cart_contents );
+
+		/**
+		 * Fires when cart is updated.
+		 *
+		 * @since 3.2.0
+		 */
 		do_action( 'woocommerce_cart_updated' );
 	}
 
@@ -252,6 +440,12 @@ final class WC_Cart_Session {
 	 * Save the persistent cart when the cart is updated.
 	 */
 	public function persistent_cart_update() {
+		/**
+		 * Filters whether the persistent cart is enabled.
+		 *
+		 * @since 3.4.0
+		 * @param bool $enabled Whether the persistent cart is enabled. Default true.
+		 */
 		if ( get_current_user_id() && apply_filters( 'woocommerce_persistent_cart_enabled', true ) ) {
 			update_user_meta(
 				get_current_user_id(),
@@ -267,6 +461,12 @@ final class WC_Cart_Session {
 	 * Delete the persistent cart permanently.
 	 */
 	public function persistent_cart_destroy() {
+		/**
+		 * Filters whether the persistent cart is enabled.
+		 *
+		 * @since 3.4.0
+		 * @param bool $enabled Whether the persistent cart is enabled. Default true.
+		 */
 		if ( get_current_user_id() && apply_filters( 'woocommerce_persistent_cart_enabled', true ) ) {
 			delete_user_meta( get_current_user_id(), '_woocommerce_persistent_cart_' . get_current_blog_id() );
 		}
@@ -286,6 +486,7 @@ final class WC_Cart_Session {
 			foreach ( $setcookies as $name => $value ) {
 				if ( ! isset( $_COOKIE[ $name ] ) || $_COOKIE[ $name ] !== $value ) {
 					wc_setcookie( $name, $value );
+					$_COOKIE[ $name ] = $value;
 				}
 			}
 		} else {
@@ -313,10 +514,16 @@ final class WC_Cart_Session {
 	private function get_saved_cart() {
 		$saved_cart = array();
 
+		/**
+		 * Filters whether the persistent cart is enabled.
+		 *
+		 * @since 3.4.0
+		 * @param bool $enabled Whether the persistent cart is enabled. Default true.
+		 */
 		if ( apply_filters( 'woocommerce_persistent_cart_enabled', true ) ) {
 			$saved_cart_meta = get_user_meta( get_current_user_id(), '_woocommerce_persistent_cart_' . get_current_blog_id(), true );
 
-			if ( isset( $saved_cart_meta['cart'] ) ) {
+			if ( is_array( $saved_cart_meta ) && isset( $saved_cart_meta['cart'] ) ) {
 				$saved_cart = array_filter( (array) $saved_cart_meta['cart'] );
 			}
 		}
@@ -337,7 +544,15 @@ final class WC_Cart_Session {
 	private function populate_cart_from_order( $order_id, $cart ) {
 		$order = wc_get_order( $order_id );
 
-		if ( ! $order->get_id() || ! $order->has_status( apply_filters( 'woocommerce_valid_order_statuses_for_order_again', array( 'completed' ) ) ) || ! current_user_can( 'order_again', $order->get_id() ) ) {
+		/**
+		 * Filter the valid order statuses for reordering.
+		 *
+		 * @since 3.6.0
+		 *
+		 * @param array $valid_statuses Array of valid order statuses.
+		 */
+		$valid_statuses = apply_filters( 'woocommerce_valid_order_statuses_for_order_again', array( OrderStatus::COMPLETED ) );
+		if ( ! $order->get_id() || ! $order->has_status( $valid_statuses ) || ! current_user_can( 'order_again', $order->get_id() ) ) {
 			return;
 		}
 
@@ -361,7 +576,7 @@ final class WC_Cart_Session {
 			}
 
 			// Prevent reordering variable products if no selected variation.
-			if ( ! $variation_id && $product->is_type( 'variable' ) ) {
+			if ( ! $variation_id && $product->is_type( ProductType::VARIABLE ) ) {
 				continue;
 			}
 
@@ -371,10 +586,7 @@ final class WC_Cart_Session {
 			}
 
 			foreach ( $item->get_meta_data() as $meta ) {
-				if ( taxonomy_is_product_attribute( $meta->key ) ) {
-					$term                     = get_term_by( 'slug', $meta->value, $meta->key );
-					$variations[ $meta->key ] = $term ? $term->name : $meta->value;
-				} elseif ( meta_is_product_attribute( $meta->key, $meta->value, $product_id ) ) {
+				if ( taxonomy_is_product_attribute( $meta->key ) || meta_is_product_attribute( $meta->key, $meta->value, $product_id ) ) {
 					$variations[ $meta->key ] = $meta->value;
 				}
 			}

@@ -14,11 +14,8 @@ if ( ! defined( 'WP_ADMIN' ) ) {
 	define( 'WP_ADMIN', true );
 }
 
-if ( defined( 'ABSPATH' ) ) {
-	require_once ABSPATH . 'wp-load.php';
-} else {
-	require_once dirname( __DIR__ ) . '/wp-load.php';
-}
+/** Load WordPress Bootstrap */
+require_once dirname( __DIR__ ) . '/wp-load.php';
 
 require_once ABSPATH . 'wp-admin/admin.php';
 
@@ -48,20 +45,42 @@ if ( isset( $_REQUEST['attachment_id'] ) && (int) $_REQUEST['attachment_id'] && 
 
 	switch ( $_REQUEST['fetch'] ) {
 		case 3:
-			$thumb_url = wp_get_attachment_image_src( $id, 'thumbnail', true );
-			if ( $thumb_url ) {
-				echo '<img class="pinkynail" src="' . esc_url( $thumb_url[0] ) . '" alt="" />';
-			}
-			if ( current_user_can( 'edit_post', $id ) ) {
-				echo '<a class="edit-attachment" href="' . esc_url( get_edit_post_link( $id ) ) . '" target="_blank">' . _x( 'Edit', 'media item' ) . '</a>';
-			} else {
-				echo '<span class="edit-attachment">' . _x( 'Success', 'media item' ) . '</span>';
-			}
+			?>
+			<div class="media-item-wrapper">
+				<div class="attachment-details">
+					<?php
+					$thumb_url = wp_get_attachment_image_src( $id, 'thumbnail', true );
+					if ( $thumb_url ) {
+						echo '<img class="pinkynail" src="' . esc_url( $thumb_url[0] ) . '" alt="" />';
+					}
 
-			// Title shouldn't ever be empty, but use filename just in case.
-			$file  = get_attached_file( $post->ID );
-			$title = $post->post_title ? $post->post_title : wp_basename( $file );
-			echo '<div class="filename new"><span class="title">' . esc_html( wp_html_excerpt( $title, 60, '&hellip;' ) ) . '</span></div>';
+					// Title shouldn't ever be empty, but use filename just in case.
+					$file     = get_attached_file( $post->ID );
+					$file_url = wp_get_attachment_url( $post->ID );
+					$title    = $post->post_title ? $post->post_title : wp_basename( $file );
+					?>
+					<div class="filename new">
+						<span class="media-list-title"><strong><?php echo esc_html( wp_html_excerpt( $title, 60, '&hellip;' ) ); ?></strong></span>
+						<span class="media-list-subtitle"><?php echo esc_html( wp_basename( $file ) ); ?></span>
+						<div class="attachment-tools">
+							<?php
+							if ( current_user_can( 'edit_post', $id ) ) {
+								echo '<a class="edit-attachment" href="' . esc_url( get_edit_post_link( $id ) ) . '">' . _x( 'Edit', 'media item' ) . '</a>';
+							} else {
+								echo '<span class="edit-attachment">' . _x( 'Success', 'media item' ) . '</span>';
+							}
+							?>
+							<span class="media-item-copy-container copy-to-clipboard-container edit-attachment">
+								<button type="button" class="button button-small copy-attachment-url"
+									data-clipboard-text="<?php echo esc_url( $file_url ); ?>"
+								><?php _e( 'Copy URL to clipboard' ); ?></button>
+								<span class="success hidden" aria-hidden="true"><?php _e( 'Copied!' ); ?></span>
+							</span>
+						</div>
+					</div>
+				</div>
+			</div>
+			<?php
 			break;
 		case 2:
 			add_filter( 'attachment_fields_to_edit', 'media_single_attachment_fields_to_edit', 10, 2 );
@@ -93,10 +112,12 @@ if ( isset( $_REQUEST['post_id'] ) ) {
 
 $id = media_handle_upload( 'async-upload', $post_id );
 if ( is_wp_error( $id ) ) {
-	printf(
-		'<div class="error-div error">%s <strong>%s</strong><br />%s</div>',
+	$button_unique_id = uniqid( 'dismiss-' );
+	$message          = sprintf(
+		'%s <strong>%s</strong><br />%s',
 		sprintf(
-			'<button type="button" class="dismiss button-link" onclick="jQuery(this).parents(\'div.media-item\').slideUp(200, function(){jQuery(this).remove();});">%s</button>',
+			'<button type="button" id="%s" class="dismiss button-link">%s</button>',
+			esc_attr( $button_unique_id ),
 			__( 'Dismiss' )
 		),
 		sprintf(
@@ -106,6 +127,14 @@ if ( is_wp_error( $id ) ) {
 		),
 		esc_html( $id->get_error_message() )
 	);
+	wp_admin_notice(
+		$message,
+		array(
+			'additional_classes' => array( 'error-div', 'error' ),
+			'paragraph_wrap'     => false,
+		)
+	);
+	echo "<script>jQuery( 'button#{$button_unique_id}' ).on( 'click', function() {jQuery(this).parents('div.media-item').slideUp(200, function(){jQuery(this).remove();})});</script>\n";
 	exit;
 }
 
@@ -119,8 +148,14 @@ if ( $_REQUEST['short'] ) {
 	/**
 	 * Filters the returned ID of an uploaded attachment.
 	 *
-	 * The dynamic portion of the hook name, `$type`, refers to the attachment type,
-	 * such as 'image', 'audio', 'video', 'file', etc.
+	 * The dynamic portion of the hook name, `$type`, refers to the attachment type.
+	 *
+	 * Possible hook names include:
+	 *
+	 *  - `async_upload_audio`
+	 *  - `async_upload_file`
+	 *  - `async_upload_image`
+	 *  - `async_upload_video`
 	 *
 	 * @since 2.5.0
 	 *

@@ -1,9 +1,17 @@
 <?php
 /**
-* 
+*
 */
 class xa_my_account_order_return
 {
+	// Declare properties to avoid dynamic property creation on PHP 8.2+.
+	public $settings = array();
+	public $debug = false;
+	public $retun_label_dom_service = '';
+	public $retun_label_int_service = '';
+	public $frontend_retun_label = false;
+	public $return_label_reason_required = false;
+
 	function __construct(){
 		$this->init();
 		if( $this->frontend_retun_label ){
@@ -20,13 +28,13 @@ class xa_my_account_order_return
 		//This option is removed since 3.2.3 (Released 09-Nov-17 ), Kept here for backward compatibility
 		$this->retun_label_dom_service 	= isset( $this->settings['retun_label_dom_service'] ) ? $this->settings['retun_label_dom_service'] : '';
 		$this->retun_label_int_service 	= isset( $this->settings['retun_label_int_service'] ) ? $this->settings['retun_label_int_service'] : '';
-				
+
 		if(empty($this->retun_label_dom_service))
 			$this->retun_label_dom_service 	= isset( $this->settings['default_dom_service'] ) ? $this->settings['default_dom_service'] : '';
-		
+
 		if( empty($this->retun_label_int_service))
 			$this->retun_label_int_service 	= isset( $this->settings['default_int_service'] ) ? $this->settings['default_int_service'] : '';
-		
+
 		$this->frontend_retun_label 		= isset( $this->settings['frontend_retun_label'] ) && $this->settings['frontend_retun_label'] =='yes' ? true : false;
 		$this->return_label_reason_required	= ( isset($this->settings['frontend_retun_label_reason']) && $this->settings['frontend_retun_label_reason'] == 'yes' ) ? true : false;
 	}
@@ -36,7 +44,7 @@ class xa_my_account_order_return
 		global $wp;
 
 		$this->order_id = isset($wp->query_vars['view-order']) ? $wp->query_vars['view-order'] : 0;
-		
+
 		$shipmentIds = get_post_meta($this->order_id, 'wf_woo_fedex_shipmentId', false);
 		if (!empty($shipmentIds)) {
 			echo "<h2>Shipping details</h2>";
@@ -48,7 +56,7 @@ class xa_my_account_order_return
 					echo '<li style="padding:10px"><strong>Return Shipment Tracking ID:</strong> '.$return_shipment_id;?>
 					<a class="button tips" href="<?php echo $download_url; ?>" data-tip="<?php _e('Print Return Label', 'wf-shipping-fedex'); ?>"><?php _e('Print Return Label', 'wf-shipping-fedex'); ?></a>
 					</li>
-					<?php 
+					<?php
 				}else{
 					$selected_sevice = $this->wf_get_shipping_service($order);
 					$generate_url = home_url("/my-account/view-order/$this->order_id/?generate_fedex_return_label=".base64_encode($shipmentId ."|".$this->order_id) );
@@ -61,7 +69,7 @@ class xa_my_account_order_return
 						?>
 						Reason for Return : <input type="text" id="fedex_return_service_reason_<?php echo $shipmentId ?>" name="fedex_return_service_reason" required />
 						<script>
-							
+
 							function create_return_label(shipmentId, encoded_shipmentid_order_id) {
 								reason_for_return =jQuery("#fedex_return_service_reason_"+shipmentId).val();
 								if( reason_for_return == "" ){
@@ -111,9 +119,9 @@ class xa_my_account_order_return
 		if( empty($_GET['generate_fedex_return_label']) ){
 			return false;
 		}
-		
+
 		$return_params = explode('|', base64_decode($_GET['generate_fedex_return_label']));
-		
+
 		if(empty($return_params) || !is_array($return_params) || count($return_params) != 2)
 			return;
 
@@ -141,10 +149,10 @@ class xa_my_account_order_return
 				$order->add_order_note( __('Reason for return of shipment '). $shipment_id .' : '.utf8_encode($_GET['fedex_return_reason']), 0, 1 );
 
 			}
-			
+
 			if ( ! class_exists( 'wf_fedex_woocommerce_shipping_admin_helper' ) )
 				include_once 'class-wf-fedex-woocommerce-shipping-admin-helper.php';
-			
+
 			$woofedexwrapper = new wf_fedex_woocommerce_shipping_admin_helper();
 			$this->order = $this->wf_load_order($this->order_id);
 
@@ -169,11 +177,11 @@ class xa_my_account_order_return
 		if (!class_exists('WC_Order')) {
 			return false;
 		}
-		
+
 		if(!class_exists('wf_order')){
 			include_once('class-wf-legacy.php');
 		}
-		return ( WC()->version < '2.7.0' ) ? new WC_Order( $orderId ) : new wf_order( $orderId );    
+		return ( WC()->version < '2.7.0' ) ? new WC_Order( $orderId ) : new wf_order( $orderId );
 	}
 
 	private function wf_get_shipping_service($order,$retrive_from_order = false, $shipment_id=false){
@@ -188,7 +196,7 @@ class xa_my_account_order_return
 		$this->is_international = ( $order->shipping_country != $origin_country ) ? true : false;
 
 		if( !$this->is_international && !empty($this->retun_label_dom_service) ){
-			return $this->retun_label_dom_service;	
+			return $this->retun_label_dom_service;
 		}
 
 		if( $this->is_international && !empty($this->retun_label_int_service) ){
@@ -199,15 +207,15 @@ class xa_my_account_order_return
 			$service_code = get_post_meta($order->id, 'wf_woo_fedex_service_code'.$shipment_id, true);
 			if(!empty($service_code)) return $service_code;
 		}
-		
-		if(!empty($_GET['service'])){			
-		    $service_arr    =   json_decode(stripslashes(html_entity_decode($_GET["service"])));  
+
+		if(!empty($_GET['service'])){
+		    $service_arr    =   json_decode(stripslashes(html_entity_decode($_GET["service"])));
 			return $service_arr[0];
 		}
-			
+
 		//TODO: Take the first shipping method. It doesnt work if you have item wise shipping method
 		$shipping_methods = $order->get_shipping_methods();
-		
+
 		if ( ! $shipping_methods ) {
 			return '';
 		}

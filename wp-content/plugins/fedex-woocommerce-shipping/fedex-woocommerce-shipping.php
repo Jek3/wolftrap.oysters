@@ -62,13 +62,13 @@ if( ! class_exists('Ph_Fedex_Woocommerce_Shipping_Common') ) {
  */
 $xa_active_plugins = Ph_Fedex_Woocommerce_Shipping_Common::get_active_plugins();
 if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
-	
+
 	if (!function_exists('wf_get_settings_url')){
 		function wf_get_settings_url(){
 			return version_compare(WC()->version, '2.1', '>=') ? "wc-settings" : "woocommerce_settings";
 		}
 	}
-	
+
 	if (!function_exists('wf_plugin_override')){
 		add_action( 'plugins_loaded', 'wf_plugin_override' );
 		function wf_plugin_override() {
@@ -92,7 +92,9 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
 	include('includes/wf-automatic-label-generation.php');
 	if(!class_exists('wf_fedEx_wooCommerce_shipping_setup')){
 		class wf_fedEx_wooCommerce_shipping_setup {
-			
+			// Declare dynamic properties to be compatible with PHP 8.2+.
+			public $active_plugins = array();
+
 			public function __construct() {
 
 				$this->active_plugins = Ph_Fedex_Woocommerce_Shipping_Common::get_active_plugins();		// List of active plugins
@@ -109,7 +111,7 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
 				$this->wf_init();
 				add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( $this, 'plugin_action_links' ) );
 				add_action( 'woocommerce_shipping_init', array( $this, 'wf_fedEx_wooCommerce_shipping_init' ) );
-				add_filter( 'woocommerce_shipping_methods', array( $this, 'wf_fedEx_wooCommerce_shipping_methods' ) );		
+				add_filter( 'woocommerce_shipping_methods', array( $this, 'wf_fedEx_wooCommerce_shipping_methods' ) );
 				add_filter( 'admin_enqueue_scripts', array( $this, 'wf_fedex_scripts' ) );
 
 				if ( isset( $fedex_settings['freight_enabled'] ) && 'yes' === $fedex_settings['freight_enabled'] ) {
@@ -130,7 +132,7 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
 
 					}
 					add_filter( 'wp_enqueue_scripts', array( $this, 'ph_fedex_checkout_scripts_for_hold_at_location' ) );
-				}			
+				}
 			}
 			public function init() {
 
@@ -163,7 +165,7 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
             	 remove_submenu_page('index.php', 'Fedex-Welcome');
             }
 			public function wf_init() {
-				
+
 				// To Support Third Party plugins
 				$this->third_party_plugin_support();
 
@@ -174,8 +176,8 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
 				include_once ( 'includes/class-wf-request.php' );
 				include_once ( 'includes/class-xa-my-account-order-return.php' );
 				if ( is_admin() ) {
-					include_once ( 'includes/class-wf-fedex-pickup-admin.php' );				
-					
+					include_once ( 'includes/class-wf-fedex-pickup-admin.php' );
+
 					include_once ( 'includes/class-xa-fedex-image-upload.php' );
 
 				}
@@ -219,7 +221,7 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
 					require_once 'includes/third-party-plugin-support/ph-fedex-woocs-currency-switcher.php';
 				}
 			}
-			
+
 			public function wf_fedex_scripts() {
 				wp_enqueue_script( 'jquery-ui-sortable' );
 				wp_enqueue_script( 'ph-fedex-common-script', plugins_url( '/resources/js/wf_common.js', __FILE__ ), array( 'jquery' ) );
@@ -227,7 +229,7 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
 				wp_enqueue_style( 'ph-fedex-common-style', plugins_url( '/resources/css/wf_common_style.css', __FILE__ ));
 				wp_enqueue_style( 'wf-fedex-style', plugins_url( '/resources/css/wf_fedex_style.css', __FILE__ ));
 			}
-			
+
 			public function plugin_action_links( $links ) {
 				$plugin_links = array(
 					'<a href="' . admin_url( 'admin.php?page=' . wf_get_settings_url() . '&tab=shipping&section=wf_fedex_woocommerce_shipping' ) . '">' . __( 'Settings', 'wf_fedEx_wooCommerce_shipping' ) . '</a>',
@@ -236,8 +238,8 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
                 '<a href="'.admin_url('index.php?page=Fedex-Welcome').'" style="color:green;" target="_blank">' . __('Get Started', 'wf_fedEx_wooCommerce_shipping') . '</a>'
 				);
 				return array_merge( $plugin_links, $links );
-			}			
-			
+			}
+
 			public function wf_fedEx_wooCommerce_shipping_init() {
 				include_once( 'includes/class-wf-fedex-woocommerce-shipping.php' );
 				$shipping_obj = new wf_fedex_woocommerce_shipping_method();
@@ -245,16 +247,16 @@ if ( in_array( 'woocommerce/woocommerce.php', $xa_active_plugins ) ) {
             	add_filter( 'woocommerce_cart_shipping_method_full_label', array($shipping_obj, 'wf_add_delivery_time'), 10, 2 );
 			}
 
-			
+
 			public function wf_fedEx_wooCommerce_shipping_methods( $methods ) {
 				$methods[] = 'wf_fedex_woocommerce_shipping_method';
 				return $methods;
-			}	
+			}
 			public function ph_fedex_checkout_scripts_for_hold_at_location( ) {
 					if(is_checkout()) {
 						wp_enqueue_script( 'ph-fedex-checkout-script', plugins_url( '/resources/js/ph_fedex_checkout.js', __FILE__ ), array( 'jquery' ) );
 					}
-			}	
+			}
 		}
 		new wf_fedEx_wooCommerce_shipping_setup();
 	}

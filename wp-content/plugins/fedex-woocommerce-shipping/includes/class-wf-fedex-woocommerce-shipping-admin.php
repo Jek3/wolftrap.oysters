@@ -3,10 +3,34 @@ class wf_fedex_woocommerce_shipping_admin{
 
 	//PDS-179
 	public $prioritizedSignatureOption 	= array( 5=>'ADULT',4=>'DIRECT',3=>'INDIRECT',2=>'SERVICE_DEFAULT',1=>'NO_SIGNATURE_REQUIRED',0=>'' );
-	
+	// Declare common properties referenced dynamically to avoid deprecation notices in PHP 8.2+.
+	public $settings = array();
+	public $custom_services = array();
+	public $image_type = '';
+	public $packing_method = '';
+	public $debug = false;
+	public $xa_show_all_shipping_methods = false;
+	public $display_fedex_meta_box_on_order = 'yes';
+	public $production = false;
+	public $dimension_unit = 'cm';
+	public $weight_unit = 'kg';
+	public $origin_country = '';
+	public $origin_state = '';
+	public $account_number = '';
+	public $meter_number = '';
+	public $api_key = '';
+	public $api_pass = '';
+	public $hold_at_location = false;
+	public $saturday_delivery = false;
+	public $freight_enabled = false;
+	public $custom_scaling = '100';
+	public $client_side_reset = false;
+	public $etd_label = false;
+	public $signature_option = '';
+
 	public function __construct(){
 		add_action('init', array($this, 'wf_init'));
-		
+
 		if (is_admin()) {
 			$this->init_bulk_printing();
 			add_action('add_meta_boxes', array($this, 'wf_add_fedex_metabox'));
@@ -18,15 +42,15 @@ class wf_fedex_woocommerce_shipping_admin{
 		if (isset($_GET['wf_fedex_createshipment'])) {
 			add_action('init', array($this, 'wf_fedex_createshipment'));
 		}
-		
+
 		if (isset($_GET['wf_fedex_generate_packages_rates'])) {
 			add_action('init', array($this, 'wf_fedex_generate_packages_rates'));
 		}
-		
+
 		if (isset($_GET['wf_fedex_additional_label'])) {
 			add_action('init', array($this, 'wf_fedex_additional_label'));
 		}
-		
+
 		if (isset($_GET['wf_fedex_viewlabel'])) {
 			add_action('init', array($this, 'wf_fedex_viewlabel'));
 		}
@@ -34,25 +58,25 @@ class wf_fedex_woocommerce_shipping_admin{
 		if (isset($_GET['wf_fedex_void_shipment'])) {
 			add_action('init', array($this, 'wf_fedex_void_shipment'));
 		}
-		
+
 		if (isset($_GET['wf_clear_history'])) {
 			add_action('init', array($this, 'wf_clear_history'));
 		}
 
-		if (isset($_GET['ph_client_reset_link'])) {  
+		if (isset($_GET['ph_client_reset_link'])) {
 			add_action('init', array($this, 'wf_clear_history'));
 		}
 
 		if (isset($_GET['wf_create_return_label'])) {
 			add_action('init', array($this, 'wf_create_return_label'));
 		}
-		
+
 		if (isset($_GET['wf_fedex_viewReturnlabel'])) {
 			add_action('init', array($this, 'wf_fedex_viewReturnlabel'));
 		}
 
 		add_action( 'wp_ajax_xa_fedex_validate_credential', array($this,'xa_fedex_validate_credentials'), 10, 1 );
-		
+
 		add_action('admin_notices',array(new wf_admin_notice, 'throw_notices'));
 		add_action('woocommerce_admin_order_actions_end', array(&$this, 'fedex_action_column'),2);
 	}
@@ -61,7 +85,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		global $woocommerce;
 		$this->rateservice_version			  = 31;
 		$this->settings 			= get_option( 'woocommerce_'.WF_Fedex_ID.'_settings', null );
-		
+
 		$this->weight_dimensions_manual 	= isset($this->settings['manual_wgt_dimensions']) ? $this->settings['manual_wgt_dimensions'] : 'no';
 		$this->custom_services 				= isset($this->settings['services']) ? $this->settings['services'] : '';
 		$this->image_type 					= isset($this->settings['image_type']) ? $this->settings['image_type'] : '';
@@ -79,7 +103,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			$this->dimension_unit 			= 	'cm';
 			$this->weight_unit 				= 	'kg';
 		}
-		
+
 		$this->set_origin_country_state();
 
 		$this->account_number 		= isset($this->settings[ 'account_number' ]) && !empty($this->settings['account_number']) ? $this->settings['account_number'] : '';
@@ -181,7 +205,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		$transient_data  		= get_transient($this->request_hash);
 
 		if( !empty($transient_data) ) {
-			
+
 			$response 	= json_decode(get_transient( $this->request_hash ));
 
 		} else {
@@ -203,10 +227,10 @@ class wf_fedex_woocommerce_shipping_admin{
 					$exception_message = $e->getMessage();
 				}
 			}
-			
+
 			set_transient($this->request_hash,json_encode($response),2*24*60*60);
 		}
-		
+
 		if( isset($response->AddressToLocationRelationships) && !empty($response->AddressToLocationRelationships) ) {
 
 			if( ! empty($response->AddressToLocationRelationships->DistanceAndLocationDetails) && is_array($response->AddressToLocationRelationships->DistanceAndLocationDetails) ) {
@@ -229,32 +253,32 @@ class wf_fedex_woocommerce_shipping_admin{
 			foreach ($all_locations as $location_id => $location) {
 
 				if( !empty($location->LocationDetail->LocationType) && in_array($location->LocationDetail->LocationType, $hold_at_location_types) ) {
-					
+
 					$address = null;
 
 					// Street Address
 					if( ! empty($location->LocationDetail->LocationContactAndAddress->Address->StreetLines) ) {
 						$address = $location->LocationDetail->LocationContactAndAddress->Address->StreetLines;
 					}
-					
+
 					// City
 					if( ! empty($location->LocationDetail->LocationContactAndAddress->Address->City) ) {
 						$address = ! empty($address) ? $address.', '. $location->LocationDetail->LocationContactAndAddress->Address->City : $location->LocationDetail->LocationContactAndAddress->Address->City;
 					}
-					
+
 					// State
 					if( ! empty($location->LocationDetail->LocationContactAndAddress->Address->StateOrProvinceCode) ) {
 						$address = ! empty($address) ? $address.', '. $location->LocationDetail->LocationContactAndAddress->Address->StateOrProvinceCode : $location->LocationDetail->LocationContactAndAddress->Address->StateOrProvinceCode;
 					}
-					
+
 					// Postal Code
 					if( ! empty($location->LocationDetail->LocationContactAndAddress->Address->PostalCode) ) {
 						$address = ! empty($address) ? $address.', '. $location->LocationDetail->LocationContactAndAddress->Address->PostalCode : $location->LocationDetail->LocationContactAndAddress->Address->PostalCode;
 					}
-					
+
 					// Country
 					$address = !empty($address) ? $address.', '.$location->LocationDetail->LocationContactAndAddress->Address->CountryCode : $location->LocationDetail->LocationContactAndAddress->Address->CountryCode;
-					
+
 					//Distance
 					if( ! empty($location->Distance->Value) ) {
 						$address = $address.'. ('. $location->Distance->Value.' '. $location->Distance->Units.')';
@@ -272,7 +296,7 @@ class wf_fedex_woocommerce_shipping_admin{
 
 		$locator .=	'</select></p></div>';
 		$array['#shipping_hold_at_location'] = $locator;
-		
+
 		echo $array['#shipping_hold_at_location'];
 
 	}
@@ -312,7 +336,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			$address = !empty($address) ? $address.', '.$location->LocationDetail->LocationContactAndAddress->Address->CountryCode : $location->LocationDetail->LocationContactAndAddress->Address->CountryCode;
 
 			$selectedAddress    = $address;
-			
+
 			//Distance
 			if( ! empty($location->Distance->Value) ) {
 				$address = $address.'. ('. $location->Distance->Value.' '. $location->Distance->Units.')';
@@ -322,14 +346,14 @@ class wf_fedex_woocommerce_shipping_admin{
 
 				$selectedAddress    = $location->LocationDetail->LocationContactAndAddress->Contact->CompanyName.', '.$selectedAddress;
 			}
-			
+
 			update_post_meta( $post_id, 'ph_fedex_hold_at_location', $hold_at_location[$selected_location] );
 			update_post_meta( $post_id, 'ph_fedex_selected_hold_at_location', $selectedAddress );
 		} else {
 			update_post_meta( $post_id, 'ph_fedex_hold_at_location', '' );
 			update_post_meta( $post_id, 'ph_fedex_selected_hold_at_location', '' );
 		}
-			
+
 	}
 
 	/**
@@ -366,7 +390,7 @@ class wf_fedex_woocommerce_shipping_admin{
 	}
 
 	function perform_bulk_label_actions() {
-		
+
 		$wp_list_table 	= _get_list_table('WP_Posts_List_Table');
 		$action 		= $wp_list_table->current_action();
 
@@ -375,7 +399,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			if( isset($_REQUEST['post']) && is_array($_REQUEST['post']) ) {
 
 				$shipping_labels	= array();
-				
+
 				foreach($_REQUEST['post'] as $order_id) {
 
 					$shipmentIds = get_post_meta($order_id, 'wf_woo_fedex_shipmentId', false);
@@ -385,7 +409,7 @@ class wf_fedex_woocommerce_shipping_admin{
 					if( is_array($shipmentIds) && is_array($shipment_ids) ){
 						$shipmentIds  		= array_unique(array_merge($shipmentIds,$shipment_ids));
 					}
-					
+
 					foreach($shipmentIds as $shipmentId) {
 
 						$shipping_labels[] 			= get_post_meta($order_id, 'wf_woo_fedex_shippingLabel_'.$shipmentId, true);
@@ -406,7 +430,7 @@ class wf_fedex_woocommerce_shipping_admin{
 				echo "<html>
 						<body style='margin: 0; display: flex; flex-direction: column; justify-content: center;'>
 							<div style='text-align: center;'>";
-				
+
 							foreach ($shipping_labels as $key => $label) {
 
 								echo "<div>";
@@ -427,12 +451,12 @@ class wf_fedex_woocommerce_shipping_admin{
 			}
 
 		} elseif( $action == 'wf_create_shipment' ) {
-			
+
 			if( isset($_REQUEST['post']) && is_array($_REQUEST['post']) ){
 				foreach($_REQUEST['post'] as $order_id){
 					$order = $this->wf_load_order($order_id);
 					if($order) {
-						$package = get_post_meta( $order->get_id(), '_wf_fedex_stored_packages', true );		
+						$package = get_post_meta( $order->get_id(), '_wf_fedex_stored_packages', true );
 						if( empty($package) ){
 							$this->xa_generate_package($order);
 						}
@@ -444,7 +468,7 @@ class wf_fedex_woocommerce_shipping_admin{
 						}
 
 						$this->wf_create_shipment($order);
-						
+
 						$shipmentIds = get_post_meta($order->get_id(), 'wf_woo_fedex_shipmentId', false);
 						if( !empty($shipmentIds) ){
 							wf_admin_notice::add_notice( __("Label has been generated for order $order_id", 'wf-shipping-fedex'), 'notice' );
@@ -464,7 +488,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		$meter_number		= ( isset($_POST['meter_number']) ) ? $_POST['meter_number'] : '';
 		$api_key			= ( isset($_POST['api_key']) ) ? $_POST['api_key'] : '';
 		$api_pass			= ( isset($_POST['api_pass']) ) ? $_POST['api_pass'] : '';
-		
+
 		if ( empty($account_number) || empty($meter_number) || empty($api_key) || empty($api_pass) ) {
 
 			$result = array(
@@ -545,7 +569,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			if( $this->soap_method == 'nusoap' ){
 				$response = $client->call( 'getRates', array( 'RateRequest' => $request ) );
 				$response = json_decode( json_encode( $response ), false );
-				
+
 				if( $client->fault ) {
 					$log->add('Fedex Soap Details', " Nusoap Fault : ".print_r($response,true));
 				}
@@ -566,7 +590,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		catch(Exception $e) {
 			$log->add( 'Fedex Soap Details', 'Exception Occured - '.print_r($e->getMessage(),true));
 		}
-		
+
 		$result = array();
 		if ( $response  ) {
 			if( isset($response->HighestSeverity) && $response->HighestSeverity === 'ERROR' ){
@@ -607,9 +631,9 @@ class wf_fedex_woocommerce_shipping_admin{
 		if (count($shipmentDetails) != 2) {
 			exit;
 		}
-		
-		$shipmentId					= $shipmentDetails[0]; 
-		$post_id					= $shipmentDetails[1]; 
+
+		$shipmentId					= $shipmentDetails[0];
+		$post_id					= $shipmentDetails[1];
 		$shipping_label				= get_post_meta($post_id, 'wf_woo_fedex_returnLabel_'.$shipmentId, true);
 		$shipping_label_image_type	= get_post_meta($post_id, 'wf_woo_fedex_returnLabel_image_type_'.$shipmentId, true);
 
@@ -636,7 +660,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			header('Content-Type: application/'.$shipping_label_image_type);
 			$label_name = apply_filters( 'ph_fedex_label_name', 'ShipmentArtifact-'.$shipmentId, $shipmentId, $post_id, 'return_label' );
 			header('Content-disposition: attachment; filename="' . $label_name . '.'.$shipping_label_image_type.'"');
-			print(base64_decode($shipping_label)); 
+			print(base64_decode($shipping_label));
 		}
 		exit;
 	}
@@ -652,7 +676,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		if( $this->soap_method=='nusoap' ){
 			$soapclient = new nusoap_client( $wsdl, 'wsdl' );
 		}else{
-			$soapclient = new SoapClient( $wsdl, 
+			$soapclient = new SoapClient( $wsdl,
 				array(
 					'trace' =>	true
 				)
@@ -664,15 +688,15 @@ class wf_fedex_woocommerce_shipping_admin{
 	public function wf_create_return_label(){
 
 		$user_ok = $this->wf_user_permission();
-		if (!$user_ok) 			
+		if (!$user_ok)
 			return;
 
 		$return_params = explode('|', base64_decode($_GET['wf_create_return_label']));
-		
+
 		if(empty($return_params) || !is_array($return_params) || count($return_params) != 2)
 			return;
-		
-		$shipment_id = $return_params[0]; 
+
+		$shipment_id = $return_params[0];
 		$order_id =  $return_params[1];
 
 
@@ -688,7 +712,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		}
 
 	}
-	
+
 	public function wf_clear_history(){
 
 		$user_ok = $this->wf_user_permission();
@@ -698,7 +722,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			exit;
 		}
 
-		if( isset($_GET['ph_client_reset_link']) ) { 
+		if( isset($_GET['ph_client_reset_link']) ) {
 
 			$order_id 			= base64_decode($_GET['ph_client_reset_link']);
 			$void_shipments  	= get_post_meta($order_id, 'wf_woo_fedex_shipmentId', false);
@@ -712,17 +736,17 @@ class wf_fedex_woocommerce_shipping_admin{
 
 			$order_id 			= base64_decode($_GET['wf_clear_history']);
 			$void_shipments 	= get_post_meta($order_id, 'wf_woo_fedex_shipment_void',false);
-		}	
-		
-		
+		}
+
+
 		if(empty($order_id))
 			return;
-		
+
 		if(empty($void_shipments)){
 			wp_redirect(admin_url('/post.php?post='.$order_id.'&action=edit'));
 			exit;
 		}
-		
+
 		foreach($void_shipments as $void_shipment_id){
 			delete_post_meta($order_id, 'wf_woo_fedex_packageDetails_'.$void_shipment_id);
 			delete_post_meta($order_id, 'wf_woo_fedex_shippingLabel_'.$void_shipment_id);
@@ -732,39 +756,39 @@ class wf_fedex_woocommerce_shipping_admin{
 			delete_post_meta($order_id, 'wf_woo_fedex_shipment_void',$void_shipment_id);
 			delete_post_meta($order_id, 'wf_fedex_additional_label_',$void_shipment_id);
 		}
-		
-		delete_post_meta($order_id, 'wf_woo_fedex_shipment_void_errormessage');		
+
+		delete_post_meta($order_id, 'wf_woo_fedex_shipment_void_errormessage');
 		delete_post_meta($order_id, 'wf_woo_fedex_service_code');
-		delete_post_meta($order_id, 'wf_woo_fedex_shipmentErrorMessage');	
-		delete_post_meta($order_id, 'ph_woo_fedex_shipmentIds'); //New added meta key	
-					
+		delete_post_meta($order_id, 'wf_woo_fedex_shipmentErrorMessage');
+		delete_post_meta($order_id, 'ph_woo_fedex_shipmentIds'); //New added meta key
+
 		wp_redirect(admin_url('/post.php?post='.$order_id.'&action=edit'));
-		exit;	
-	}	
-	
+		exit;
+	}
+
 	public function wf_fedex_void_shipment(){
 		$user_ok = $this->wf_user_permission();
-		if (!$user_ok) 			
+		if (!$user_ok)
 			return;
-			
+
 		$void_params = explode('||', base64_decode($_GET['wf_fedex_void_shipment']));
-		
+
 		if(empty($void_params) || !is_array($void_params) || count($void_params) != 2)
 			return;
-		
-		$shipment_id = $void_params[0]; 
-		$order_id =  $void_params[1];			
-			
-			
+
+		$shipment_id = $void_params[0];
+		$order_id =  $void_params[1];
+
+
 		if ( ! class_exists( 'wf_fedex_woocommerce_shipping_admin_helper' ) )
 			include_once 'class-wf-fedex-woocommerce-shipping-admin-helper.php';
-		
+
 		$woofedexwrapper = new wf_fedex_woocommerce_shipping_admin_helper();
 		$tracking_completedata = get_post_meta($order_id, 'wf_woo_fedex_tracking_full_details_'.$shipment_id, true);
 		if(!empty($tracking_completedata)){
 			$woofedexwrapper->void_shipment($order_id,$shipment_id,$tracking_completedata);
 		}
-		
+
 		if ( $this->debug ) {
 			//dont redirect when debug is printed
 			die();
@@ -774,7 +798,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		  exit;
 		}
 	}
-	
+
 	function wf_load_order( $orderId ){
 		if( !$orderId ){
 			return false;
@@ -782,9 +806,9 @@ class wf_fedex_woocommerce_shipping_admin{
 		if(!class_exists('wf_order')){
 			include_once('class-wf-legacy.php');
 		}
-		return ( WC()->version < '2.7.0' ) ? new WC_Order( $orderId ) : new wf_order( $orderId );	
+		return ( WC()->version < '2.7.0' ) ? new WC_Order( $orderId ) : new wf_order( $orderId );
 	}
-	
+
 	private function wf_user_permission($auto_generate=null){
 		// Check if user has rights to generate invoices
 		$current_minute=(integer)date('i');
@@ -804,16 +828,16 @@ class wf_fedex_woocommerce_shipping_admin{
 		}
 		return $user_ok;
 	}
-	
+
 	public function wf_fedex_createshipment(){
 		$user_ok = $this->wf_user_permission(isset($_GET['auto_generate'])?$_GET['auto_generate']:null);
-		if (!$user_ok) 			
+		if (!$user_ok)
 			return;
-		
+
 		$order = $this->wf_load_order($_GET['wf_fedex_createshipment']);
-		if (!$order) 
+		if (!$order)
 			return;
-		
+
 		$shipment_ids = get_post_meta( $_GET['wf_fedex_createshipment'], 'wf_woo_fedex_shipmentId', true );
 		if( empty($shipment_ids) ) {
 			$this->wf_create_shipment($order);
@@ -836,7 +860,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		  exit;
 		}
 	}
-	
+
 	public function wf_fedex_viewlabel(){
 		$settings 					= get_option( 'woocommerce_'.WF_Fedex_ID.'_settings', null );
 		$show_label_in_browser      = isset( $settings['show_label_in_browser'] ) ? $settings['show_label_in_browser'] : 'no';
@@ -845,12 +869,12 @@ class wf_fedex_woocommerce_shipping_admin{
 		if (count($shipmentDetails) != 2) {
 			exit;
 		}
-		
-		$shipmentId 				= $shipmentDetails[0]; 
-		$post_id 					= $shipmentDetails[1]; 
+
+		$shipmentId 				= $shipmentDetails[0];
+		$post_id 					= $shipmentDetails[1];
 		$shipping_label 			= get_post_meta($post_id, 'wf_woo_fedex_shippingLabel_'.$shipmentId, true);
 		$shipping_label_image_type 	= get_post_meta($post_id, 'wf_woo_fedex_shippingLabel_image_type_'.$shipmentId, true);
-		
+
 		if( empty($shipping_label_image_type) ){
 			$shipping_label_image_type = $this->image_type;
 		}
@@ -874,24 +898,24 @@ class wf_fedex_woocommerce_shipping_admin{
 			header('Content-Type: application/'.$shipping_label_image_type);
 			$label_name = apply_filters( 'ph_fedex_label_name', 'ShipmentArtifact-'.$shipmentId, $shipmentId, $post_id, 'normal_label' );
 			header('Content-disposition: attachment; filename="' . $label_name . '.'.$shipping_label_image_type.'"');
-			print(base64_decode($shipping_label)); 
+			print(base64_decode($shipping_label));
 		}
 		exit;
 	}
-	
+
 	public function wf_fedex_additional_label(){
 		$shipmentDetails = explode('|', base64_decode($_GET['wf_fedex_additional_label']));
 
 		if (count($shipmentDetails) != 3) {
 			exit;
 		}
-		
-		$shipmentId = $shipmentDetails[0]; 
+
+		$shipmentId = $shipmentDetails[0];
 		$post_id = $shipmentDetails[1];
-		$add_key = $shipmentDetails[2];		
+		$add_key = $shipmentDetails[2];
 		$additional_labels = get_post_meta($post_id, 'wf_fedex_additional_label_'.$shipmentId, true);
 		$additional_label_image_type = get_post_meta($post_id, 'wf_fedex_additional_label_image_type_'.$shipmentId, true);
-		
+
 		if( !empty($additional_label_image_type[$add_key])){
 			$image_type = $additional_label_image_type[$add_key];
 		}else{
@@ -901,17 +925,17 @@ class wf_fedex_woocommerce_shipping_admin{
 			header('Content-Type: application/'.$image_type);
 			$label_name = apply_filters( 'ph_fedex_label_name', 'Addition-doc-'. $add_key .'-'.$shipmentId, $add_key.'-'.$shipmentId, $post_id, 'additional_label' );
 			header('Content-disposition: attachment; filename="' . $label_name . '.'.$image_type.'"');
-			print(base64_decode($additional_labels[$add_key])); 
+			print(base64_decode($additional_labels[$add_key]));
 		}
-		exit;		
+		exit;
 	}
-	
+
 	private function wf_is_service_valid_for_country($order, $service_code, $dest_country=''){
 		$uk_domestic_services = array('FEDEX_DISTANCE_DEFERRED', 'FEDEX_NEXT_DAY_EARLY_MORNING', 'FEDEX_NEXT_DAY_MID_MORNING', 'FEDEX_NEXT_DAY_AFTERNOON', 'FEDEX_NEXT_DAY_END_OF_DAY', 'FEDEX_NEXT_DAY_FREIGHT' );
-		
+
 		$shipper_country = $this->origin_country;
 		$shipping_country = !empty($dest_country) ? $dest_country : $order->shipping_country;
-		
+
 		if( 'GB'==$shipper_country && 'GB'==$shipping_country && in_array($service_code,$uk_domestic_services) ){
 			return true;
 		}
@@ -920,14 +944,14 @@ class wf_fedex_woocommerce_shipping_admin{
 		if(in_array($shipping_country,$exception_country) && in_array($service_code,$exception_list)){
 			return true;
 		}
-		
+
 		if( $shipping_country == $this->origin_country ){
 			return strpos($service_code, 'INTERNATIONAL_') === false;
 		}
 		else{
 			return  strpos($service_code, 'INTERNATIONAL_') !== false;
 		}
-		return false; 
+		return false;
 	}
 
 	private function is_domestic($order){
@@ -946,7 +970,7 @@ class wf_fedex_woocommerce_shipping_admin{
 
 			$this->origin_country  	= apply_filters( 'woocommerce_fedex_origin_country_code', $origin_country );
 		}
-		
+
 		return $this->origin_country == $order->shipping_country;
 	}
 
@@ -956,8 +980,8 @@ class wf_fedex_woocommerce_shipping_admin{
 			$service_code = get_post_meta($order->id, 'wf_woo_fedex_service_code'.$shipment_id, true);
 			if(!empty($service_code)) return $service_code;
 		}
-		
-		if(!empty($_GET['service'])){			
+
+		if(!empty($_GET['service'])){
 			$service_arr	=   json_decode(stripslashes(html_entity_decode($_GET["service"])));
 			// If all the generated packages has been removed from order then services will be empty
 			if( ! empty($service_arr[0]) ) {
@@ -999,11 +1023,11 @@ class wf_fedex_woocommerce_shipping_admin{
 			}
 		}
 	}
-	
+
 	public function wf_create_shipment( $order, $service_arr = array() ){
 		if ( ! class_exists( 'wf_fedex_woocommerce_shipping_admin_helper' ) )
 			include_once 'class-wf-fedex-woocommerce-shipping-admin-helper.php';
-		
+
 		$woofedexwrapper = new wf_fedex_woocommerce_shipping_admin_helper();
 
 		if( !empty($service_arr) && !empty($service_arr[0]) ){
@@ -1019,14 +1043,14 @@ class wf_fedex_woocommerce_shipping_admin{
 
 		$woofedexwrapper->print_label($order,$serviceCode,$order->id);
 	}
-	
-	public function wf_create_return_shipment( $shipment_id, $order_id ){		
+
+	public function wf_create_return_shipment( $shipment_id, $order_id ){
 		if ( ! class_exists( 'wf_fedex_woocommerce_shipping_admin_helper' ) )
 			include_once 'class-wf-fedex-woocommerce-shipping-admin-helper.php';
-		
+
 		$woofedexwrapper = new wf_fedex_woocommerce_shipping_admin_helper();
 		$serviceCode = $this->wf_get_shipping_service( $this->wf_load_order($order_id),false);
-		$woofedexwrapper->print_return_label( $shipment_id, $order_id, $serviceCode  );		
+		$woofedexwrapper->print_return_label( $shipment_id, $order_id, $serviceCode  );
 	}
 
 	public function wf_add_fedex_metabox(){
@@ -1040,9 +1064,9 @@ class wf_fedex_woocommerce_shipping_admin{
 		}
 		if ( in_array( $post->post_type, array('shop_order') )) {
 			$order = $this->wf_load_order($post->ID);
-			if (!$order) 
+			if (!$order)
 				return;
-			
+
 			add_meta_box('wf_fedex_metabox', __('FedEx', 'wf-shipping-fedex'), array($this, 'wf_fedex_metabox_content'), 'shop_order', 'advanced', 'default');
 		}
 	}
@@ -1052,13 +1076,13 @@ class wf_fedex_woocommerce_shipping_admin{
 			echo "You don't have admin privileges to view this page.";
 			exit;
 		}
-		
+
 		$post_id	=	base64_decode($_GET['wf_fedex_generate_packages']);
 		$order = $this->wf_load_order( $post_id );
 		if ( !$order ) return;
 
 		if( !$this->debug && $this->settings['automate_label_generation'] == 'yes' && !isset( $_GET['wf_fedex_generate_packages'] ) ) {
-			
+
 			// Add transient to check for duplicate label generation
 			$transient			 	= 'ph_fedex_auto_shipment' . md5( $order->get_id() );
 			$processed_order		= get_transient( $transient );
@@ -1071,9 +1095,9 @@ class wf_fedex_woocommerce_shipping_admin{
 			// Set transient for 1 min to avoid duplicate label generation
 			set_transient( $transient, $order->get_id(), 60 );
 		}
-		
+
 		$this->xa_generate_package( $order );
-		
+
 		if( ( ! $this->debug ) ||  ( isset( $_GET['wf_fedex_generate_packages'] ) ) || ( $this->settings['automate_label_generation'] == 'no' ) ) {
 			wp_redirect( admin_url( '/post.php?post='.$post_id.'&action=edit#wf_fedex_metabox') );
 		}
@@ -1086,7 +1110,7 @@ class wf_fedex_woocommerce_shipping_admin{
 
 		$woofedexwrapper	= new wf_fedex_woocommerce_shipping_admin_helper();
 		$packages		= $woofedexwrapper->wf_get_package_from_order($order);
-		
+
 		if( isset( $packages['error'] ) ){
 			wf_admin_notice::add_notice( sprintf( __( $packages['error'], 'wf-shipping-fedex' ) ), 'error' );
 			return;
@@ -1098,22 +1122,22 @@ class wf_fedex_woocommerce_shipping_admin{
 		}
 		update_post_meta( $order->get_id(), '_wf_fedex_stored_packages', $package_data );
 
-		if ( !isset( $_GET['wf_fedex_generate_packages'] ) ) {	
-			//For automatic label generation 
+		if ( !isset( $_GET['wf_fedex_generate_packages'] ) ) {
+			//For automatic label generation
 			do_action( 'wf_after_package_generation', $order->get_id(), $package_data );
 		}
 	}
 
 	public function wf_fedex_metabox_content(){
 		global $post;
-		
+
 		if (!$post) {
 			return;
 		}
 
 		$order = $this->wf_load_order($post->ID);
-		if (!$order) 
-			return;			
+		if (!$order)
+			return;
 
 		$shipmentIds = get_post_meta($order->id, 'wf_woo_fedex_shipmentId', false);
 		// Some Customers Site wont allow adding duplicate Meta Keys in DB, Adding new meta key with custom build Shipment Id Array
@@ -1124,10 +1148,10 @@ class wf_fedex_woocommerce_shipping_admin{
 		}
 
 		$shipment_void_ids = get_post_meta($order->id, 'wf_woo_fedex_shipment_void', false);
-		
+
 		$shipmentErrorMessage = get_post_meta($order->id, 'wf_woo_fedex_shipmentErrorMessage',true);
 		$shipment_void_error_message = get_post_meta($order->id, 'wf_woo_fedex_shipment_void_errormessage',true);
-		
+
 		//Only Display error message if the process is not complete. If the Invoice link available then Error Message is unnecessary
 		if(!empty($shipmentErrorMessage))
 		{
@@ -1136,14 +1160,14 @@ class wf_fedex_woocommerce_shipping_admin{
 
 		if(!empty($shipment_void_error_message)){
 			echo '<div class="error"><p>' . sprintf( __( 'Void Shipment Error:%s', 'wf-shipping-fedex' ), $shipment_void_error_message) . '</p></div>';
-		}			
+		}
 		echo '<ul>';
 		if (!empty($shipmentIds)) {
 			foreach($shipmentIds as $shipmentId) {
-				$selected_sevice = $this->wf_get_shipping_service($order,true,$shipmentId);	
+				$selected_sevice = $this->wf_get_shipping_service($order,true,$shipmentId);
 				if(!empty($selected_sevice))
-					echo "<li>Shipping Service: <strong>$selected_sevice</strong></li>";		
-				
+					echo "<li>Shipping Service: <strong>$selected_sevice</strong></li>";
+
 				?><li><strong><?php _e( 'Shipment Tracking ID: ' ); ?></strong><a href="https://www.fedex.com/fedextrack/no-results-found?trknbr=<?php echo $shipmentId ?>" target="_blank"><?php echo $shipmentId ?></a><?php
 
 				$usps_trackingid = get_post_meta($order->id, 'wf_woo_fedex_usps_trackingid_'.$shipmentId, true);
@@ -1165,7 +1189,7 @@ class wf_fedex_woocommerce_shipping_admin{
 						if($dimentionValue){
 							echo '<strong>' . $dimentionKey . ': ' . '</strong>' . $dimentionValue ;
 							echo '<br />';
-						}						
+						}
 					}
 					echo '<hr>';
 				}
@@ -1173,60 +1197,60 @@ class wf_fedex_woocommerce_shipping_admin{
 				if(!empty($shipping_label)){
 					$download_url = admin_url('/post.php?wf_fedex_viewlabel='.base64_encode($shipmentId.'|'.$post->ID));?>
 					<a class="button tips" href="<?php echo $download_url; ?>" target="_blank" data-tip="<?php _e('Print Label', 'wf-shipping-fedex'); ?>"><?php _e('Print Label', 'wf-shipping-fedex'); ?></a>
-					<?php 
+					<?php
 				}
-				
+
 				if(!empty($additional_labels) && is_array($additional_labels)){
 					foreach($additional_labels as $additional_key => $additional_label){
 						$download_add_label_url = admin_url('/post.php?wf_fedex_additional_label='.base64_encode($shipmentId.'|'.$post->ID.'|'.$additional_key));?>
 						<a class="button tips" href="<?php echo $download_add_label_url; ?>" data-tip="<?php _e('Additional Label', 'wf-shipping-fedex'); ?>"><?php _e('Additional Label', 'wf-shipping-fedex'); ?></a>
 						<?php
-					}		
+					}
 				}
 				if((!is_array($shipment_void_ids) || !in_array($shipmentId,$shipment_void_ids))){
-					$void_shipment_link = admin_url('/post.php?wf_fedex_void_shipment=' . base64_encode($shipmentId.'||'.$post->ID));?>				
+					$void_shipment_link = admin_url('/post.php?wf_fedex_void_shipment=' . base64_encode($shipmentId.'||'.$post->ID));?>
 					<a class="button tips" href="<?php echo $void_shipment_link; ?>" data-tip="<?php _e('Void Shipment', 'wf-shipping-fedex'); ?>"><?php _e('Void Shipment', 'wf-shipping-fedex'); ?></a>
-					<?php 
+					<?php
 				}
 				$shipping_return_label = get_post_meta($post->ID, 'wf_woo_fedex_returnLabel_'.$shipmentId, true);
 				$return_shipment_id = get_post_meta($post->ID, 'wf_woo_fedex_returnShipmetId', true);
 				echo '<hr>';
 				if(!empty($shipping_return_label)){
 					$download_url = admin_url('/post.php?wf_fedex_viewReturnlabel='.base64_encode($shipmentId.'|'.$post->ID) );
-					
+
 					?><li><strong><?php _e( 'Return Shipment Tracking ID: ' ); ?></strong><a href="https://www.fedex.com/fedextrack/no-results-found?trknbr=<?php echo $return_shipment_id ?>" target="_blank"><?php echo $return_shipment_id ?></a>
 
 					<li><a class="button tips" href="<?php echo $download_url; ?>" target="_blank" data-tip="<?php _e('Print Return Label', 'wf-shipping-fedex'); ?>"><?php _e('Print Return Label', 'wf-shipping-fedex'); ?></a></li>
-					<?php 
+					<?php
 				}else{
-					$selected_sevice = $this->wf_get_shipping_service($order);	
+					$selected_sevice = $this->wf_get_shipping_service($order);
 					echo '<select class="fedex_return_service select">';
 					foreach($this->custom_services as $service_code => $service){
 						if($service['enabled'] == true ){
 							echo '<option value="'.$service_code.'" ' . selected($selected_sevice,$service_code) . ' >'.$service_code.'</option>';
-						}	
+						}
 					}
 					echo'</select>'?>
 					<a class="button button-primary fedex_create_return_shipment tips" href="<?php echo admin_url( '/post.php?wf_create_return_label='.base64_encode($shipmentId.'|'.$post->ID) ); ?>" data-tip="<?php _e( 'Generate return label', 'wf-shipping-fedex' ); ?>"><?php _e( 'Generate return label', 'wf-shipping-fedex' ); ?></a><?php
 				}
 				echo '<hr style="border-color:#0074a2"></li>';
-			} 
+			}
 			if($shipment_void_error_message){
 				$client_reset_link  = admin_url('/post.php?ph_client_reset_link=' . base64_encode($post->ID));
 			    $void_shipments 	= get_post_meta($post->ID, 'ph_woo_fedex_shipment_client_reset',false);
 
-				if($this->client_side_reset && $void_shipments ) { 
+				if($this->client_side_reset && $void_shipments ) {
 
-					echo '<p>If you have already cancelled this shipment by calling FedEx customer care, and you would like to create shipment again then click.</p>';?>				
-					<a class="button button-primary tips" id="fedex_client_side_reset" href="<?php echo $client_reset_link; ?>" data-tip="<?php _e('Clear Data', 'wf-shipping-fedex'); ?>" OnClick="return confirm('The shipping labels and the tracking details for all the packages will be removed from the Order page.                 Are you sure you want to continue?')";  ><?php _e('Clear Data', 'wf-shipping-fedex'); ?></a><?php 
-					echo '<p style="color:red"><strong>Note: </strong>Previous shipment details and label will be removed from Order page.</p>';	
+					echo '<p>If you have already cancelled this shipment by calling FedEx customer care, and you would like to create shipment again then click.</p>';?>
+					<a class="button button-primary tips" id="fedex_client_side_reset" href="<?php echo $client_reset_link; ?>" data-tip="<?php _e('Clear Data', 'wf-shipping-fedex'); ?>" OnClick="return confirm('The shipping labels and the tracking details for all the packages will be removed from the Order page.                 Are you sure you want to continue?')";  ><?php _e('Clear Data', 'wf-shipping-fedex'); ?></a><?php
+					echo '<p style="color:red"><strong>Note: </strong>Previous shipment details and label will be removed from Order page.</p>';
 
-				} 	  
+				}
 			}else if( (count($shipmentIds) == count($shipment_void_ids ) )){
 
-				$clear_history_link = admin_url('/post.php?wf_clear_history=' . base64_encode($post->ID));?>				
-					<a class="button button-primary tips"; href="<?php echo $clear_history_link; ?>"  data-tip="<?php _e('Clear History', 'wf-shipping-fedex'); ?>"><?php _e('Clear History', 'wf-shipping-fedex'); ?></a><?php 
-			}				
+				$clear_history_link = admin_url('/post.php?wf_clear_history=' . base64_encode($post->ID));?>
+					<a class="button button-primary tips"; href="<?php echo $clear_history_link; ?>"  data-tip="<?php _e('Clear History', 'wf-shipping-fedex'); ?>"><?php _e('Clear History', 'wf-shipping-fedex'); ?></a><?php
+			}
 		}
 		else {
 			$stored_packages	=	get_post_meta( $post->ID, '_wf_fedex_stored_packages', true );
@@ -1237,10 +1261,10 @@ class wf_fedex_woocommerce_shipping_admin{
 				<?php
 			}else{
 				$generate_url = admin_url('/post.php?wf_fedex_createshipment='.$post->ID);
- 
+
 				echo '<li>';
 					echo '<h4>'.__( 'Package(s)' , 'wf-shipping-fedex').': </h4>';
-					echo '<table id="wf_fedex_package_list" class="wf-shipment-package-table">';					
+					echo '<table id="wf_fedex_package_list" class="wf-shipment-package-table">';
 						echo '<tr>';
 							echo '<th>'.__('Wt.', 'wf-shipping-fedex').'</br>('.$this->weight_unit.')</th>';
 							echo '<th>'.__('L', 'wf-shipping-fedex').'</br>('.$this->dimension_unit.')</th>';
@@ -1256,13 +1280,13 @@ class wf_fedex_woocommerce_shipping_admin{
 								echo '<img class="help_tip" style="float:none;" data-tip="'.__( 'Remove FedEx generated packages (Beta Version).', 'wf-shipping-fedex' ).'" src="'.WC()->plugin_url().'/assets/images/help.png" height="16" width="16" />';
 							echo '</th>';
 						echo '</tr>';
-						
+
 						//case of multiple shipping address
 						$multiship = get_post_meta( $order->id, '_multiple_shipping', true);
 						if( $multiship ){
 							$multi_ship_packages  = get_post_meta($post->ID, '_wcms_packages', true);
 						}
-						
+
 						foreach($stored_packages as $package_group_key	=>	$package_group){
 							if( !is_array($package_group) ){
 								$package_group = array();
@@ -1275,12 +1299,12 @@ class wf_fedex_woocommerce_shipping_admin{
 								$this->signature_temp 	= (isset($this->signature_temp) && !empty($this->signature_temp)) && $this->signature_temp > $temp_signature ? $this->signature_temp : $temp_signature;
 								$dimensions	=	$this->get_dimension_from_package($stored_package);
 								$insurance_amount = ! empty($stored_package['InsuredValue']['Amount']) ? $stored_package['InsuredValue']['Amount'] : null;
-								
+
 								$insurance_style = ( $this->settings['insure_contents'] == 'yes' ) ? null : 'style="visibility:hidden"';
 								if(is_array($dimensions)){
 									?>
 									<tr>
-										<td><input type="text" id="fedex_manual_weight" name="fedex_manual_weight[]" size="2" value="<?php echo $dimensions['Weight'];?>" /></td>	 
+										<td><input type="text" id="fedex_manual_weight" name="fedex_manual_weight[]" size="2" value="<?php echo $dimensions['Weight'];?>" /></td>
 										<td><input type="text" id="fedex_manual_length" name="fedex_manual_length[]" size="2" value="<?php echo $dimensions['Length'];?>" /></td>
 										<td><input type="text" id="fedex_manual_width" name="fedex_manual_width[]" size="2" value="<?php echo $dimensions['Width'];?>" /></td>
 										<td><input type="text" id="fedex_manual_height" name="fedex_manual_height[]" size="2" value="<?php echo $dimensions['Height'];?>" /></td>
@@ -1304,11 +1328,11 @@ class wf_fedex_woocommerce_shipping_admin{
 												foreach($services as $service_code => $service)
 												{
 													echo '<option value="'.$service_code.'" ' . selected($selected_sevice,$service_code) . ' >'.$service.'</option>';
-												
+
 												}
 											}
 											else
-											{   
+											{
 												foreach($this->custom_services as $service_code => $service)
 												{
 												if($service['enabled'] == true && $this->wf_is_service_valid_for_country($order,$service_code, $package_dest_country) == true)
@@ -1331,12 +1355,12 @@ class wf_fedex_woocommerce_shipping_admin{
 				<a style="margin: 4px;" class="button tips fedex_generate_packages" href="<?php echo admin_url( '/post.php?wf_fedex_generate_packages='.base64_encode($post->ID) ); ?>" data-tip="<?php _e( 'Regenerate all the packages', 'wf-shipping-fedex' ); ?>"><?php _e( 'Generate Packages', 'wf-shipping-fedex' ); ?></a><li/>
 				<script type="text/javascript">
 					jQuery(document).ready(function(){
-						
-						
+
+
 						jQuery('#wf_fedex_add_package').on("click", function(){
 							var new_row = '<tr>';
 								new_row 	+= '<td><input type="text" id="fedex_manual_weight" name="fedex_manual_weight[]" size="2" value="0"></td>';
-								new_row 	+= '<td><input type="text" id="fedex_manual_length" name="fedex_manual_length[]" size="2" value="0"></td>';								
+								new_row 	+= '<td><input type="text" id="fedex_manual_length" name="fedex_manual_length[]" size="2" value="0"></td>';
 								new_row 	+= '<td><input type="text" id="fedex_manual_width" name="fedex_manual_width[]" size="2" value="0"></td>';
 								new_row 	+= '<td><input type="text" id="fedex_manual_height" name="fedex_manual_height[]" size="2" value="0"></td>';
 								new_row 	+= '<td><input type="text" id="fedex_manual_insurance" name="fedex_manual_insurance[]" size="2" value=""></td>';
@@ -1370,19 +1394,19 @@ class wf_fedex_woocommerce_shipping_admin{
 								new_row		+= '</td>';
 								new_row 	+= '<td><a class="wf_fedex_package_line_remove">&#x26D4;</a></td>';
 							new_row 	+= '</tr>';
-							
+
 							jQuery('#wf_fedex_package_list tr:last').after(new_row);
 						});
-						
+
 						jQuery(document).on('click', '.wf_fedex_package_line_remove', function(){
 							jQuery(this).closest('tr').remove();
 						});
 					});
 				</script><?php
-				
+
 				// Rates on order page
 				$generate_packages_rates = get_post_meta( $_GET['post'], 'wf_fedex_generate_packages_rates_response', true );
-				echo '<li><table id="wf_fedex_service_select" class="wf-shipment-package-table" style="margin-bottom: 5px;margin-top: 15px;box-shadow:.5px .5px 5px lightgrey;">';					
+				echo '<li><table id="wf_fedex_service_select" class="wf-shipment-package-table" style="margin-bottom: 5px;margin-top: 15px;box-shadow:.5px .5px 5px lightgrey;">';
 					echo '<tr>';
 
 						echo '<th>Select Service</th>';
@@ -1390,12 +1414,12 @@ class wf_fedex_woocommerce_shipping_admin{
 						echo '<th style="text-align:left; font-size:13px;">'.__('Delivery Time', 'wf-shipping-fedex').' </th>';
 						echo '<th style="text-align:left;font-size:13px;">'.__('Cost (', 'wf-shipping-fedex').get_woocommerce_currency_symbol().__(')', 'wf-shipping-fedex').' </th>';
 					echo '</tr>';
-					
+
 					echo '<tr>';
 						echo "<td style = 'padding-bottom: 10px; padding-left: 15px; '><input name='wf_fedex_service_choosing_radio' id='wf_fedex_service_choosing_radio' value='wf_fedex_individual_service' type='radio' checked='true'></td>";
 						echo "<td colspan = '3' style= 'padding-bottom: 10px; text-align:left;'><b>Choose Shipping Methods</b> - Select this option to choose FedEx services for each package (Shipping rates will be applied accordingly).</td>";
 					echo "</tr>";
-					
+
 					if( ! empty($generate_packages_rates) ) {
 						$wp_date_format = get_option('date_format');
 						foreach( $generate_packages_rates as $key => $rates ) {
@@ -1439,7 +1463,7 @@ class wf_fedex_woocommerce_shipping_admin{
 					'INDIRECT'	  			=> __( 'Indirect', 'wf-shipping-fedex' ),
 					'SERVICE_DEFAULT'	  	=> __( 'Service Default', 'wf-shipping-fedex' ),
 					'NO_SIGNATURE_REQUIRED' => __( 'No Signature Required', 'wf-shipping-fedex' ),
-					
+
 				);
 				_e('<li> Delivery Signature : ', 'wf-shipping-fedex');
 				echo '<select id="ph_fedex_signature_option" class="ph_fedex_signature_option">';
@@ -1460,7 +1484,7 @@ class wf_fedex_woocommerce_shipping_admin{
 
 					echo '<li><label for="ph_fedex_etd"><input type="checkbox" '.$etd_checked.' id="ph_fedex_etd" name="ph_fedex_etd">' . __('ETD - Electronic Trade Documents', 'wf-shipping-fedex') . '</label></li>';
 				}
-				
+
 				if($order_currency != $b13_post_currency && !empty($woocommerce_currency_conversion_rate)){
 
 					$b13_currency_rate = $woocommerce_currency_conversion_rate[$b13_post_currency];
@@ -1469,7 +1493,7 @@ class wf_fedex_woocommerce_shipping_admin{
 					$conversion_rate = $b13_currency_rate / $order_currency_rate;
 					$items_cost *= $conversion_rate;
 				}
-				
+
 				if( $this->origin_country === 'CA' && ( $items_cost >= 2000 &&	 ($shipping_country != 'US' && $shipping_country != 'CA' &&$shipping_country != 'PR' && $shipping_country != 'VI'))) {
 					$export_declaration_required = 1;
 					$export_compliance = get_post_meta($post->ID, '_wf_fedex_export_compliance',true);
@@ -1484,12 +1508,12 @@ class wf_fedex_woocommerce_shipping_admin{
 				</li>
 				<?php
 			} ?>
-			
+
 			<script type="text/javascript">
 				jQuery("a.fedex_generate_packages").on("click", function() {
 					location.href = this.href;
 				});
-				
+
 				// To get rates on order page
 				jQuery("a.wf_fedex_generate_packages_rates").one("click", function() {
 
@@ -1509,7 +1533,7 @@ class wf_fedex_woocommerce_shipping_admin{
 
 					let package_key = JSON.stringify(package_key_arr);
 
-					location.href = this.href + '&weight=' + manual_weight_arr 
+					location.href = this.href + '&weight=' + manual_weight_arr
 					+ '&length=' + manual_length_arr
 					+ '&width=' + manual_width_arr
 					+ '&height=' + manual_height_arr
@@ -1525,7 +1549,7 @@ class wf_fedex_woocommerce_shipping_admin{
 						jQuery(".fedex_manual_service").prop("disabled", false);
 					} else {
 						jQuery(".fedex_manual_service").val(jQuery("#wf_fedex_service_choosing_radio:checked").val()).change();
-						jQuery(".fedex_manual_service").prop("disabled", true);  
+						jQuery(".fedex_manual_service").prop("disabled", true);
 					}
 				});
 				});
@@ -1542,20 +1566,20 @@ class wf_fedex_woocommerce_shipping_admin{
 		});
 
 		jQuery("a.fedex_create_shipment").one("click", function() {
-			
+
 			jQuery(this).click(function () { return false; });
 				var manual_weight_arr 	= 	jQuery("input[id='fedex_manual_weight']").map(function(){return jQuery(this).val();}).get();
 				var manual_weight 		=	JSON.stringify(manual_weight_arr);
-				
+
 				var manual_height_arr 	= 	jQuery("input[id='fedex_manual_height']").map(function(){return jQuery(this).val();}).get();
 				var manual_height 		=	JSON.stringify(manual_height_arr);
-				
+
 				var manual_width_arr 	= 	jQuery("input[id='fedex_manual_width']").map(function(){return jQuery(this).val();}).get();
 				var manual_width 		=	JSON.stringify(manual_width_arr);
-				
+
 				var manual_length_arr 	= 	jQuery("input[id='fedex_manual_length']").map(function(){return jQuery(this).val();}).get();
 				var manual_length 		=	JSON.stringify(manual_length_arr);
-				
+
 				var manual_insurance_arr 	= 	jQuery("input[id='fedex_manual_insurance']").map(function(){return jQuery(this).val();}).get();
 				var manual_insurance 		=	JSON.stringify(manual_insurance_arr);
 
@@ -1593,11 +1617,11 @@ class wf_fedex_woocommerce_shipping_admin{
 				+ '&service=' + manual_service
 				+ '&package_key=' + package_key
 				+ '&export_compliance=' + export_compliance;
-			return false;			
+			return false;
 		});
 		</script>
 		<?php
-	}	
+	}
 	public function get_dimension_from_package($package){
 		$dimensions	=	array(
 			'Length'	=>	'',
@@ -1605,7 +1629,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			'Height'	=>	'',
 			'Weight'	=>	'',
 		);
-		
+
 		if(!is_array($package)){ // Package is not valid
 			return $dimensions;
 		}
@@ -1615,7 +1639,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			$dimensions['Height']	=	$package['Dimensions']['Height'];
 			$dimensions['dim_unit']	=	$package['Dimensions']['Units'];
 		}
-		
+
 		$dimensions['Weight']	=	$package['Weight']['Value'];
 		$dimensions['weight_unit']	=	$package['Weight']['Units'];
 		return $dimensions;
@@ -1630,7 +1654,7 @@ class wf_fedex_woocommerce_shipping_admin{
 			echo "You don't have admin privileges to view this page.";
 			exit;
 		}
-		
+
 		$post_id				= base64_decode($_GET['wf_fedex_generate_packages_rates']);
 		$length_arr				= explode(',',$_GET['length']);
 		$width_arr				= explode(',',$_GET['width']);
@@ -1638,7 +1662,7 @@ class wf_fedex_woocommerce_shipping_admin{
 		$weight_arr				= explode(',',$_GET['weight']);
 		$insurance_arr			= explode(',',$_GET['insurance']);
 		$get_stored_packages	= get_post_meta( $post_id, '_wf_fedex_stored_packages', true );
-		
+
 		if ( ! class_exists( 'wf_fedex_woocommerce_shipping_method' ) ) {
 			include_once 'class-wf-fedex-woocommerce-shipping.php';
 		}
@@ -1754,7 +1778,7 @@ class wf_fedex_woocommerce_shipping_admin{
 					$new_manual_package[0][$i] = $package_clone;
 				}
 			}
-			
+
 			if( isset($packages[0]) && is_array($packages[0]) ) {
 
 				$packages[0] = array_merge($packages[0], $new_manual_package[0]);
@@ -1829,7 +1853,7 @@ class wf_fedex_woocommerce_shipping_admin{
 				$satdelivery_rates 	= $shipping_obj->get_fedex_requests( $package, $address_package, 'saturday_delivery');
 			}
 		}
-		
+
 		// To save the rate request response
 		$_GET['order_id'] = $post_id;
 
@@ -1840,14 +1864,14 @@ class wf_fedex_woocommerce_shipping_admin{
 		}
 
 		$shipping_obj->run_package_request( $fedex_requests );
-		
+
 		if ( $this->saturday_delivery && $shipping_obj->saturday_delivery && !empty($satdelivery_rates) ) {
 
 			$shipping_obj->satday_rates 	= true;
 
 			$shipping_obj->run_package_request( $satdelivery_rates );
 		}
-		
+
 		// Redirect to same order page
 		wp_redirect( admin_url( '/post.php?post='.$post_id.'&action=edit#wf_fedex_metabox') );
 		//To stay on same order page
@@ -1882,14 +1906,14 @@ class wf_fedex_woocommerce_shipping_admin{
 					foreach($additional_labels as $additional_key => $additional_label){
 						$download_add_label_url = admin_url('/post.php?wf_fedex_additional_label='.base64_encode($shipmentId.'|'.$order->id.'|'.$additional_key));
 						printf('<a class="button tips" href="'.$download_add_label_url.'" target="_blank" data-tip="'.__('FedEx Additional Label', 'wf-shipping-fedex').'"><img src="'.plugin_dir_url(__DIR__).'resources/images/fedex_additional.png" style="width:24px;margin:2px;margin-left:0px;"/></a>');
-					}		
+					}
 				}
 			}
 		}
     }
 
     // Automatic Package Generation
-	public function ph_fedex_auto_generate_packages( $order_id, $minute = '', $fedex_settings)
+	public function ph_fedex_auto_generate_packages( $order_id, $fedex_settings, $minute = '' )
 	{
 
 		// Check current time (minute) in Thank You Page for Automatic Package generation
@@ -1897,18 +1921,18 @@ class wf_fedex_woocommerce_shipping_admin{
 		{
 			return;
 		}
-		
+
 		$post_id 	=	base64_decode( $order_id );
 		$order 		=	$this->wf_load_order( $post_id );
 
 		if ( !$order ) return;
-		
+
 		$this->xa_generate_package( $order );
-		
+
 	}
 
 	// Automatic Label Generation
-	public function ph_fedex_auto_create_shipment( $order_id, $minute = '', $fedex_settings, $weight_arr, $length_arr, $width_arr, $height_arr, $service_arr)
+	public function ph_fedex_auto_create_shipment( $order_id, $fedex_settings, $weight_arr, $length_arr, $width_arr, $height_arr, $service_arr, $minute = '' )
 	{
 
 		// Check current time (minute) in Thank You Page for Automatic Label generation
@@ -1916,33 +1940,33 @@ class wf_fedex_woocommerce_shipping_admin{
 
 		if(!$user_ok ){
 			return;
-		} 			
+		}
 
 		$order 	= $this->wf_load_order( $order_id );
 		$debug 	= ( $bool = $fedex_settings[ 'debug' ] ) && $bool == 'yes' ? true : false;
 
 		if(isset($fedex_settings['dimension_weight_unit']) && $fedex_settings['dimension_weight_unit'] == 'LBS_IN'){
-			
+
 			$labelapi_dimension_unit 	=	'IN';
-			$labelapi_weight_unit 		=	'LB';			
+			$labelapi_weight_unit 		=	'LB';
 		}else{
-			
+
 			$labelapi_dimension_unit 	=	'CM';
-			$labelapi_weight_unit		=	'KG';		
+			$labelapi_weight_unit		=	'KG';
 		}
 
 		if( !$order )
 		{
 			return;
 		}
-		
+
 		$shipment_ids = get_post_meta( $order_id, 'wf_woo_fedex_shipmentId', true );
 
 		if( empty($shipment_ids) ) {
 
 			$i 					= 0;
 			$stored_packages    = get_post_meta( $order_id, '_wf_fedex_stored_packages', true );
-			
+
 			foreach($stored_packages as $package_key => $stored_package){
 
 				foreach($stored_package as $key => $package){
@@ -1976,7 +2000,7 @@ class wf_fedex_woocommerce_shipping_admin{
 				}
 			}
 
-			update_post_meta( $order_id, '_wf_fedex_stored_packages', $stored_packages );		
+			update_post_meta( $order_id, '_wf_fedex_stored_packages', $stored_packages );
 
 			$this->wf_create_shipment( $order, $service_arr );
 

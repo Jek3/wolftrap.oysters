@@ -5,7 +5,7 @@
 	{
 		add_action( 'woocommerce_thankyou', 'wf_automatic_package_and_label_generation_fedex' );
 	}
-	
+
 	function wf_automatic_package_and_label_generation_fedex( $order_id )
 	{
 		$order 					= new WC_Order($order_id);
@@ -21,7 +21,7 @@
 		if( $processed_order ) {
 			return;
 		}
-		
+
 		// Stop automatic package generation when order status is changed and order status not found in allowed order status
 		if( ! in_array($order_status, $allowed_order_status) ) {
 			if( $shipping_setting_fedex['debug'] == 'yes' ) {
@@ -29,13 +29,13 @@
 			}
 			return;
 		}
-		
+
 		$order_items = $order->get_items();
 		if( empty($order_items) ) {
 			WC_Admin_Meta_Boxes::add_error( __( 'Fedex - No product Found. Please check the products in order.', 'wf-shipping-fedex' ) );
 			return;
 		}
-		
+
 		//  Automatically Generate Packages
 		$current_minute=(integer)date('i');
 
@@ -44,8 +44,8 @@
 
 		$fedex_admin_class 	= new wf_fedex_woocommerce_shipping_admin();
 
-		$fedex_admin_class->ph_fedex_auto_generate_packages( base64_encode($order_id), md5($current_minute), $shipping_setting_fedex );
-		
+	$fedex_admin_class->ph_fedex_auto_generate_packages( base64_encode($order_id), $shipping_setting_fedex, md5($current_minute) );
+
 		// $package_url=admin_url( '/post.php?wf_fedex_generate_packages='.base64_encode($order_id).'&auto_generate='.md5($current_minute) );
 		// $ch = curl_init();
 		// curl_setopt($ch,CURLOPT_URL,$package_url);
@@ -57,22 +57,22 @@
 		// }
 		// curl_close($ch);
 	}
-	
+
 	function wf_get_shipping_service($order,$retrive_from_order = false, $shipment_id=false, $package_group_key=false)
 	{
 		if($retrive_from_order == true){
 			$service_code = get_post_meta($order->id, 'wf_woo_fedex_service_code'.$shipment_id, true);
 			if(!empty($service_code)) return $service_code;
 		}
-		
-		if(!empty($_GET['service'])){			
-		    $service_arr    =   json_decode(stripslashes(html_entity_decode($_GET["service"])));  
+
+		if(!empty($_GET['service'])){
+		    $service_arr    =   json_decode(stripslashes(html_entity_decode($_GET["service"])));
 			return $service_arr[0];
 		}
 
 		//TODO: Take the first shipping method. It doesnt work if you have item wise shipping method
 		$shipping_methods = $order->get_shipping_methods();
-	
+
 		if( ! empty($shipping_methods) ) {
 			$shipping_method 		= array_shift($shipping_methods);
 			$shipping_method_meta 	= $shipping_method->get_meta('_xa_fedex_method');
@@ -85,7 +85,7 @@
 		$settings = get_option( 'woocommerce_'.WF_Fedex_ID.'_settings', null );
 		//Origin coutry without state
 		$origin_country = current( explode( ':', $settings['origin_country'] ) ) ;
-		
+
 		if( $origin_country == $order->get_shipping_country() ){
 			if( !empty($settings['default_dom_service']) ){
 				return $settings['default_dom_service'];
@@ -96,8 +96,8 @@
 			}
 		}
 	}
-	
-	if(isset($shipping_setting['automate_label_generation']) && $shipping_setting['automate_label_generation']=='yes' ){	
+
+	if(isset($shipping_setting['automate_label_generation']) && $shipping_setting['automate_label_generation']=='yes' ){
 		add_action('wf_after_package_generation','wf_auto_genarate_label_fedex',2,2);
 	}
 
@@ -119,9 +119,9 @@
 			$height=array();
 			$services=array();
 			foreach($package_data as $key=>$val)
-			{	
+			{
 				foreach($val as $key2=>$package)
-				{	
+				{
 					if(isset($package['Weight'])) $weight[]=$package['Weight']['Value'];
 					if(isset($package['Dimensions']))
 					{
@@ -129,7 +129,7 @@
 						$width[]=$package['Dimensions']['Width'];
 						$height[]=$package['Dimensions']['Height'];
 					}
-					
+
 					$service 	= wf_get_shipping_service( new WC_Order($order_id),false, false, $key );
 					$service 	= apply_filters( 'ph_fedex_label_shipping_method', $service, new WC_Order($order_id) );
 
@@ -137,17 +137,17 @@
 					$services[] = ! empty($package['service']) ? $package['service'] : $service;
 				}
 			}
-			
+
 			$fedex_admin_class 	= new wf_fedex_woocommerce_shipping_admin();
 
-			$fedex_admin_class->ph_fedex_auto_create_shipment( $order_id, md5($current_minute), $shipping_setting_fedex, $weight, $length, $width, $height, $services );
+			$fedex_admin_class->ph_fedex_auto_create_shipment( $order_id, $shipping_setting_fedex, $weight, $length, $width, $height, $services, md5($current_minute) );
 
 			// $package_url.='&weight=["'.implode('","',$weight).'"]';
 			// $package_url.='&length=["'.implode('","',$length).'"]';
 			// $package_url.='&width=["'.implode('","',$width).'"]';
 			// $package_url.='&height=["'.implode('","',$height).'"]';
 			// $package_url.='&service=["'.implode('","',$services).'"]';
-			
+
 			// $ch = curl_init();
 			// curl_setopt($ch,CURLOPT_URL,$package_url);
 			// curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
@@ -169,7 +169,7 @@
 
 
 	function wf_after_label_generation_fedex($shipment_id,$encoded_label_image,$order_id)
-	{	
+	{
 		$shipping_setting2 =get_option('woocommerce_wf_fedex_woocommerce_shipping_settings');
 
 		$subject = ( isset($shipping_setting2['email_subject']) && !empty($shipping_setting2['email_subject']) ) ? $shipping_setting2['email_subject'] : __('Shipment Label For Your Order', 'wf-shipping-fedex').' [ORDER NO]';
@@ -251,29 +251,29 @@
 				$first_name 	= $order->get_billing_first_name();
 				$last_name		= $order->get_billing_last_name();
 			}
-			
+
 			$customer_name 	= $first_name.' '.$last_name;
 
 			$emailcontent = str_replace( array( "[PRODUCTS ID]", "[PRODUCTS NAME]", "[PRODUCTS SKU]", "[ORDER NO]", "[ORDER AMOUNT]","[PRODUCT_INFO]","[CUSTOMER EMAIL]", "[CUSTOMER NAME]"),
 									array( $all_products['ids'], $all_products['names'], $all_products['skus'], $order->get_order_number(), $order->get_total(), $product_info_as_table, $customer_email, $customer_name ), $emailcontent );
-			
+
 			$additional_labels 	= get_post_meta($order_id, 'wf_fedex_additional_label_'.$shipment_id, true);
 			$add_label 			= '';
 
 			if(!empty($additional_labels) && is_array($additional_labels)) {
-				foreach($additional_labels as $additional_key => $additional_label) {					
+				foreach($additional_labels as $additional_key => $additional_label) {
 
 					$add_label_url = admin_url('/post.php?wf_fedex_additional_label='.base64_encode($shipment_id.'|'.$order_id.'|'.$additional_key));
 
 					$add_label 	.= "<a href='".$add_label_url."' ><button>Additional Label</button></a>";
-				}		
+				}
 			}
 
 			if( !empty($add_label) ) {
 
 				$emailcontent 			= str_replace("[ADDITIONAL LABELS]",$add_label, $emailcontent);
 			}
-												
+
 			$img_url		= admin_url('/post.php?wf_fedex_viewlabel='.base64_encode($shipment_id.'|'.$order_id));
 			$body 			= str_replace("[DOWNLOAD LINK]",$img_url, $emailcontent);
 
@@ -285,7 +285,7 @@
 	}
 
 	if(isset($shipping_setting['allow_label_btn_on_myaccount']) && $shipping_setting['allow_label_btn_on_myaccount']=='yes' )
-	{	
+	{
 		add_action('woocommerce_view_order','wf_add_view_shippinglabel_button_on_myaccount_order_page_fedex');
 	}
 	function wf_add_view_shippinglabel_button_on_myaccount_order_page_fedex($order_id)
@@ -294,7 +294,7 @@
 		if(!empty($shipment_id))
 		{
 			$img_url=admin_url('/post.php?wf_fedex_viewlabel='.base64_encode($shipment_id.'|'.$order_id));
-			echo ' </br><a href="'.$img_url.'" ><input type="button" value="Download Shipping Label here" class="button" /> </a> </br></br>';			
+			echo ' </br><a href="'.$img_url.'" ><input type="button" value="Download Shipping Label here" class="button" /> </a> </br></br>';
 		}
 
 	}

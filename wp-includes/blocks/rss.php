@@ -8,11 +8,17 @@
 /**
  * Renders the `core/rss` block on server.
  *
+ * @since 5.2.0
+ *
  * @param array $attributes The block attributes.
  *
  * @return string Returns the block content with received rss items.
  */
 function render_block_core_rss( $attributes ) {
+	if ( in_array( untrailingslashit( $attributes['feedURL'] ), array( site_url(), home_url() ), true ) ) {
+		return '<div class="components-placeholder"><div class="notice notice-error">' . __( 'Adding an RSS feed to this site’s homepage is not supported, as it could lead to a loop that slows down your site. Try using another block, like the <strong>Latest Posts</strong> block, to list posts from the site.' ) . '</div></div>';
+	}
+
 	$rss = fetch_feed( $attributes['feedURL'] );
 
 	if ( is_wp_error( $rss ) ) {
@@ -44,7 +50,7 @@ function render_block_core_rss( $attributes ) {
 			if ( $date ) {
 				$date = sprintf(
 					'<time datetime="%1$s" class="wp-block-rss__item-publish-date">%2$s</time> ',
-					esc_attr( date_i18n( get_option( 'c' ), $date ) ),
+					esc_attr( date_i18n( 'c', $date ) ),
 					esc_attr( date_i18n( get_option( 'date_format' ), $date ) )
 				);
 			}
@@ -55,17 +61,20 @@ function render_block_core_rss( $attributes ) {
 			$author = $item->get_author();
 			if ( is_object( $author ) ) {
 				$author = $author->get_name();
-				$author = '<span class="wp-block-rss__item-author">' . sprintf(
-					/* translators: %s: the author. */
-					__( 'by %s' ),
-					esc_html( strip_tags( $author ) )
-				) . '</span>';
+				if ( ! empty( $author ) ) {
+					$author = '<span class="wp-block-rss__item-author">' . sprintf(
+						/* translators: byline. %s: author. */
+						__( 'by %s' ),
+						esc_html( strip_tags( $author ) )
+					) . '</span>';
+				}
 			}
 		}
 
-		$excerpt = '';
-		if ( $attributes['displayExcerpt'] ) {
-			$excerpt = html_entity_decode( $item->get_description(), ENT_QUOTES, get_option( 'blog_charset' ) );
+		$excerpt     = '';
+		$description = $item->get_description();
+		if ( $attributes['displayExcerpt'] && ! empty( $description ) ) {
+			$excerpt = html_entity_decode( $description, ENT_QUOTES, get_option( 'blog_charset' ) );
 			$excerpt = esc_attr( wp_trim_words( $excerpt, $attributes['excerptLength'], ' [&hellip;]' ) );
 
 			// Change existing [...] to [&hellip;].
@@ -83,10 +92,19 @@ function render_block_core_rss( $attributes ) {
 	if ( isset( $attributes['blockLayout'] ) && 'grid' === $attributes['blockLayout'] ) {
 		$classnames[] = 'is-grid';
 	}
-
 	if ( isset( $attributes['columns'] ) && 'grid' === $attributes['blockLayout'] ) {
 		$classnames[] = 'columns-' . $attributes['columns'];
 	}
+	if ( $attributes['displayDate'] ) {
+		$classnames[] = 'has-dates';
+	}
+	if ( $attributes['displayAuthor'] ) {
+		$classnames[] = 'has-authors';
+	}
+	if ( $attributes['displayExcerpt'] ) {
+		$classnames[] = 'has-excerpts';
+	}
+
 	$wrapper_attributes = get_block_wrapper_attributes( array( 'class' => implode( ' ', $classnames ) ) );
 
 	return sprintf( '<ul %s>%s</ul>', $wrapper_attributes, $list_items );
@@ -94,6 +112,8 @@ function render_block_core_rss( $attributes ) {
 
 /**
  * Registers the `core/rss` block on server.
+ *
+ * @since 5.2.0
  */
 function register_block_core_rss() {
 	register_block_type_from_metadata(

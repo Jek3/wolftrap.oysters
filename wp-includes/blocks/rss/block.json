@@ -1,7 +1,12 @@
 {
-	"apiVersion": 2,
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
 	"name": "core/rss",
+	"title": "RSS",
 	"category": "widgets",
+	"description": "Display entries from any RSS or Atom feed.",
+	"keywords": [ "atom", "feed" ],
+	"textdomain": "default",
 	"attributes": {
 		"columns": {
 			"type": "number",
@@ -38,7 +43,30 @@
 	},
 	"supports": {
 		"align": true,
-		"html": false
+		"html": false,
+		"interactivity": {
+			"clientNavigation": true
+		},
+		"__experimentalBorder": {
+			"radius": true,
+			"color": true,
+			"width": true,
+			"style": true
+		},
+		"spacing": {
+			"margin": true,
+			"padding": true,
+			"__experimentalDefaultControls": {
+				"padding": false,
+				"margin": false
+			}
+		},
+		"color": {
+			"background": true,
+			"text": true,
+			"gradients": true,
+			"link": true
+		}
 	},
 	"editorStyle": "wp-block-rss-editor",
 	"style": "wp-block-rss"

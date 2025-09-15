@@ -3,7 +3,7 @@
  * Countries
  *
  * Returns an array of countries and codes.
- * Country codes and names should follow the Unicode CLDR recommendation (http://cldr.unicode.org/translation/displaynames/country-names).
+ * Country codes and names should follow the Unicode CLDR recommendation (https://cldr.unicode.org/translation/displaynames/countryregion-territory-names).
  *
  * See https://github.com/unicode-org/cldr/blob/master/common/subdivisions/en.xml
  *
@@ -225,7 +225,7 @@ return array(
 	'SD' => __( 'Sudan', 'woocommerce' ),
 	'SR' => __( 'Suriname', 'woocommerce' ),
 	'SJ' => __( 'Svalbard and Jan Mayen', 'woocommerce' ),
-	'SZ' => __( 'Swaziland', 'woocommerce' ),
+	'SZ' => __( 'Eswatini', 'woocommerce' ),
 	'SE' => __( 'Sweden', 'woocommerce' ),
 	'CH' => __( 'Switzerland', 'woocommerce' ),
 	'SY' => __( 'Syria', 'woocommerce' ),
@@ -239,7 +239,7 @@ return array(
 	'TO' => __( 'Tonga', 'woocommerce' ),
 	'TT' => __( 'Trinidad and Tobago', 'woocommerce' ),
 	'TN' => __( 'Tunisia', 'woocommerce' ),
-	'TR' => __( 'Turkey', 'woocommerce' ),
+	'TR' => __( 'Türkiye', 'woocommerce' ),
 	'TM' => __( 'Turkmenistan', 'woocommerce' ),
 	'TC' => __( 'Turks and Caicos Islands', 'woocommerce' ),
 	'TV' => __( 'Tuvalu', 'woocommerce' ),

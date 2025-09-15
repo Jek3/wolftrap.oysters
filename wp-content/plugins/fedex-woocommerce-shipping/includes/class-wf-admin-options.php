@@ -1,6 +1,9 @@
 <?php
 if( !class_exists('WF_Admin_Options') ){
 	class WF_Admin_Options{
+		// Declare properties to avoid dynamic property creation on PHP 8.2+.
+		public $freight_classes = array();
+		public $settings = array();
 		function __construct(){
 			$this->freight_classes  =   include( 'data-wf-freight-classes.php' );
 			$this->init();
@@ -72,7 +75,7 @@ if( !class_exists('WF_Admin_Options') ){
 					'description' => __('Enable if this product requires Dry Ice shipment.','wf-shipping-fedex'),
 					'desc_tip' => 'true',
 				) );
-				
+
 				woocommerce_wp_text_input( array(
 					'id' => '_wf_dry_ice_weight',
 					'data_type'=> 'decimal',
@@ -158,7 +161,7 @@ if( !class_exists('WF_Admin_Options') ){
 				'desc_tip'  => 'true',
 				'placeholder'   => __( 'Insurance amount FedEx', 'wf-shipping-fedex')
 			) );
-			
+
 			//Dangerous Goods Checkbox
 			woocommerce_wp_checkbox( array(
 				'id' => '_dangerous_goods',
@@ -266,7 +269,7 @@ if( !class_exists('WF_Admin_Options') ){
 			) );
 
 			?></div></div><?php
-			
+
 		}
 
 		// public function wf_variation_settings_fields( $loop, $variation_data, $variation ){
@@ -289,7 +292,7 @@ if( !class_exists('WF_Admin_Options') ){
 		// }
 
 		function wf_save_custome_product_fields( $post_id ) {
-			
+
 			//HS code value
 			if ( isset( $_POST['_wf_hs_code'] ) ) {
 				update_post_meta( $post_id, '_wf_hs_code', esc_attr( $_POST['_wf_hs_code'] ) );
@@ -312,7 +315,7 @@ if( !class_exists('WF_Admin_Options') ){
 			if ( isset( $_POST['_wf_manufacture_country'] ) ) {
 				update_post_meta( $post_id, '_wf_manufacture_country', esc_attr( $_POST['_wf_manufacture_country'] ) );
 			}
-			
+
 			// Freight Class
 			if ( isset( $_POST['_wf_freight_class']) && !is_array($_POST['_wf_freight_class']) ) {
 				update_post_meta( $post_id, '_wf_freight_class', esc_attr( $_POST['_wf_freight_class'] ) );
@@ -322,8 +325,8 @@ if( !class_exists('WF_Admin_Options') ){
 			if( isset($_POST['_wf_fedex_special_service_types']) && !is_array($_POST['_wf_fedex_special_service_types']) ){
 				update_post_meta( $post_id, '_wf_fedex_special_service_types', $_POST['_wf_fedex_special_service_types'] );
 			}
-			
-			
+
+
 			// Alcohol recipient type
 			if( isset($_POST['_wf_fedex_sst_alcohal_recipient']) && !is_array($_POST['_wf_fedex_sst_alcohal_recipient']) ) {
 				update_post_meta( $post_id, '_wf_fedex_sst_alcohal_recipient', $_POST['_wf_fedex_sst_alcohal_recipient'] );
@@ -333,11 +336,11 @@ if( !class_exists('WF_Admin_Options') ){
 			if( isset($_POST['_ph_fedex_signature_option']) && !is_array($_POST['_ph_fedex_signature_option']) ) {
 				update_post_meta( $post_id, '_ph_fedex_signature_option', $_POST['_ph_fedex_signature_option'] );
 			}
-			
+
 			//Dangerous Goods
 			$dangerous_goods =  ( isset( $_POST['_dangerous_goods'] ) && !is_array($_POST['_dangerous_goods']) && esc_attr($_POST['_dangerous_goods'])=='yes') ? esc_attr($_POST['_dangerous_goods'])  : false;
 			update_post_meta( $post_id, '_dangerous_goods', $dangerous_goods );
-			
+
 
 			//Save Dangerous goods regulation
 			if( ! empty ($_POST['_wf_fedex_dg_regulations']) && !is_array($_POST['_wf_fedex_dg_regulations']) ) {
@@ -389,7 +392,7 @@ if( !class_exists('WF_Admin_Options') ){
 			} else {
 				update_post_meta( $post_id, '_wf_fedex_pre_packed', '' );
 			}
-			
+
 			//non-standard product
 			$non_standard_product =  ( isset( $_POST['_wf_fedex_non_standard_product'] ) && !is_array($_POST['_wf_fedex_non_standard_product']) && esc_attr($_POST['_wf_fedex_non_standard_product'])=='yes') ? esc_attr($_POST['_wf_fedex_non_standard_product'])  : false;
 			update_post_meta( $post_id, '_wf_fedex_non_standard_product', $non_standard_product );
@@ -398,9 +401,9 @@ if( !class_exists('WF_Admin_Options') ){
 			 if( isset($_POST['_wf_fedex_custom_declared_value'] ) ) {
                 update_post_meta( $post_id, '_wf_fedex_custom_declared_value', esc_attr( $_POST['_wf_fedex_custom_declared_value'] ) );
             }
-			
+
 		}
-		
+
 		// function admin_add_frieght_class() {
 		//  woocommerce_wp_select(array(
 		//      'id' =>     '_wf_freight_class',
@@ -413,22 +416,22 @@ if( !class_exists('WF_Admin_Options') ){
 
 		//Function to add option in products at variation level
 		function wf_add_custome_product_fields_at_variation($loop, $variation_data, $variation){
-			
+
 			?><hr style="border-top: 1px solid #eee;" /><p class="ph_fedex_var_other_details">FedEx Shipping Details<span class="var_toggle_symbol" aria-hidden="true"></span></p><div class="ph_fedex_hide_show_var_product_fields"><?php
 
 			// Freight Class Dropdown
-			woocommerce_wp_select( 
-				array( 
+			woocommerce_wp_select(
+				array(
 					'id'        => '_wf_freight_class[' . $variation->ID . ']',
 					'class'     => 'ph_fedex_variation_class_select',
-					'label'     => __( 'Freight Class (FedEx)', 'wf-shipping-fedex' ), 
+					'label'     => __( 'Freight Class (FedEx)', 'wf-shipping-fedex' ),
 					'value'     => get_post_meta( $variation->ID, '_wf_freight_class', true ),
 					'options'   =>  array(''=>__('Default','wf-shipping-fedex'))+$this->freight_classes,
 					'description'   => __('Leaving default will inherit parent FedEx Freight class.','wf-shipping-fedex'),
 					'desc_tip'  => 'true',
 				)
 			);
-			
+
 			// Special Services
 			woocommerce_wp_select( array(
 				'id'        => '_wf_fedex_special_service_types[' . $variation->ID . ']',
@@ -499,7 +502,7 @@ if( !class_exists('WF_Admin_Options') ){
 					'desc_tip'      => 'true',
 				)
 			);
-			
+
 			//Dangerous Goods Checkbox
 			woocommerce_wp_checkbox( array(
 				'id'        => '_dangerous_goods[' . $variation->ID . ']',
@@ -509,7 +512,7 @@ if( !class_exists('WF_Admin_Options') ){
 				'description'   => __('Check this to mark the product as a dangerous goods.','wf-shipping-fedex'),
 				'desc_tip'  => 'true',
 			));
-			
+
 			?><div class="ph_fedex_var_dangerous_goods"><?php
 
 			//Dangerous Goods Regulations
@@ -527,7 +530,7 @@ if( !class_exists('WF_Admin_Options') ){
 					'ORMD'  => __( 'ORMD', 'wf-shipping-fedex' )
 				),
 			));
-			
+
 			//Dangerous Goods Accessibility
 			woocommerce_wp_select( array(
 				'id'        => '_wf_fedex_dg_accessibility[' . $variation->ID . ']',
@@ -637,17 +640,17 @@ if( !class_exists('WF_Admin_Options') ){
 		// }
 
 		function wf_save_custome_product_fields_at_variation( $post_id ) {
-			
+
 			$select = $_POST['_wf_freight_class'][ $post_id ];
 			if( ! empty( $select ) ) {
 				update_post_meta( $post_id, '_wf_freight_class', esc_attr( $select ) );
 			}
-			
+
 			// Save Special service types
 			if( isset($_POST['_wf_fedex_special_service_types'][$post_id]) ) {
 				update_post_meta( $post_id, '_wf_fedex_special_service_types', $_POST['_wf_fedex_special_service_types'][$post_id] );
 			}
-			
+
 			// Save alcohal recipient types
 			if( isset($_POST['_wf_fedex_sst_alcohal_recipient'][$post_id]) ) {
 				update_post_meta( $post_id, '_wf_fedex_sst_alcohal_recipient', $_POST['_wf_fedex_sst_alcohal_recipient'][$post_id] );
@@ -657,16 +660,16 @@ if( !class_exists('WF_Admin_Options') ){
 			if( isset($_POST['_ph_fedex_signature_option'][$post_id]) ) {
 				update_post_meta( $post_id, '_ph_fedex_signature_option', $_POST['_ph_fedex_signature_option'][$post_id] );
 			}
-			
+
 			// Save dangerous goods options for variation
 			$dangerous_goods =  ( isset( $_POST['_dangerous_goods'][$post_id] ) && esc_attr($_POST['_dangerous_goods'][$post_id])=='yes') ? esc_attr($_POST['_dangerous_goods'][$post_id])  : false;
 			update_post_meta( $post_id, '_dangerous_goods', $dangerous_goods );
-			
+
 			// Save dangerous goods regulations for variation
 			if( ! empty($_POST['_wf_fedex_dg_regulations'][$post_id]) ) {
 				update_post_meta( $post_id, '_wf_fedex_dg_regulations', $_POST['_wf_fedex_dg_regulations'][$post_id] );
 			}
-			
+
 			// Save dangerous goods accessibility for variation
 			if( ! empty($_POST['_wf_fedex_dg_accessibility'][$post_id]) ) {
 				update_post_meta( $post_id, '_wf_fedex_dg_accessibility', $_POST['_wf_fedex_dg_accessibility'][$post_id] );

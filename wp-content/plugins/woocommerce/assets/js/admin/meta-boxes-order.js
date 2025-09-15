@@ -1,5 +1,5 @@
 // eslint-disable-next-line max-len
-/*global woocommerce_admin_meta_boxes, woocommerce_admin, accounting, woocommerce_admin_meta_boxes_order, wcSetClipboard, wcClearClipboard */
+/*global woocommerce_admin_meta_boxes, woocommerce_admin, accounting, woocommerce_admin_meta_boxes_order, wcSetClipboard, wcClearClipboard, wc_enhanced_select_params */
 jQuery( function ( $ ) {
 
 	// Stand-in wcTracks.recordEvent in case tracks is not available (for any reason).
@@ -69,22 +69,22 @@ jQuery( function ( $ ) {
 					$defaultOption = $( '<option value=""></option>' )
 						.text( woocommerce_admin_meta_boxes_order.i18n_select_state_text );
 
-					$newstate = $( '<select></select>' )
-						.prop( 'id', input_id )
-						.prop( 'name', input_name )
-						.prop( 'placeholder', placeholder )
-						.addClass( 'js_field-state select short' )
-						.append( $defaultOption );
+				$newstate = $( '<select></select>' )
+					.prop( 'id', input_id )
+					.prop( 'name', input_name )
+					.prop( 'placeholder', placeholder )
+					.addClass( 'js_field-state select short' )
+					.append( $defaultOption );
 
-					$.each( state, function( index ) {
-						var $option = $( '<option></option>' )
-							.prop( 'value', index )
-							.text( state[ index ] );
-						if ( index === stateValue ) {
-							$option.prop( 'selected' );
-						}
-						$newstate.append( $option );
-					} );
+				$.each( state, function( index ) {
+					var $option = $( '<option></option>' )
+						.prop( 'value', index )
+						.text( state[ index ] );
+					if ( index === stateValue ) {
+						$option.prop( 'selected' );
+					}
+					$newstate.append( $option );
+				} );
 
 				$newstate.val( value );
 
@@ -333,12 +333,28 @@ jQuery( function ( $ ) {
 			$( '#woocommerce-order-items' ).unblock();
 		},
 
+		filter_data: function( handle, data ) {
+			const filteredData = $( '#woocommerce-order-items' )
+				.triggerHandler(
+					`woocommerce_order_meta_box_${handle}_ajax_data`,
+					[ data ]
+				);
+
+			if ( filteredData ) {
+				return filteredData;
+			}
+
+			return data;
+		},
+
 		reload_items: function() {
 			var data = {
 				order_id: woocommerce_admin_meta_boxes.post_id,
 				action:   'woocommerce_load_order_items',
 				security: woocommerce_admin_meta_boxes.order_item_nonce
 			};
+
+			data = wc_meta_boxes_order_items.filter_data( 'reload_items', data );
 
 			wc_meta_boxes_order_items.block();
 
@@ -396,14 +412,10 @@ jQuery( function ( $ ) {
 					$line_subtotal_tax.attr( 'data-subtotal_tax' ),
 					woocommerce_admin.mon_decimal_point
 				) / o_qty;
-				var round_at_subtotal  = 'yes' === woocommerce_admin_meta_boxes.round_at_subtotal;
-				var precision          = woocommerce_admin_meta_boxes[
-					round_at_subtotal ? 'rounding_precision' : 'currency_format_num_decimals'
-				];
 
 				if ( 0 < unit_total_tax ) {
 					$line_total_tax.val(
-						parseFloat( accounting.formatNumber( unit_total_tax * qty, precision, '' ) )
+						parseFloat( accounting.formatNumber( unit_total_tax * qty, woocommerce_admin_meta_boxes.rounding_precision, '' ) )
 							.toString()
 							.replace( '.', woocommerce_admin.mon_decimal_point )
 					);
@@ -411,7 +423,11 @@ jQuery( function ( $ ) {
 
 				if ( 0 < unit_subtotal_tax ) {
 					$line_subtotal_tax.val(
-						parseFloat( accounting.formatNumber( unit_subtotal_tax * qty, precision, '' ) )
+						parseFloat( accounting.formatNumber(
+							unit_subtotal_tax * qty,
+							woocommerce_admin_meta_boxes.rounding_precision,
+							''
+						) )
 							.toString()
 							.replace( '.', woocommerce_admin.mon_decimal_point )
 					);
@@ -462,6 +478,8 @@ jQuery( function ( $ ) {
 					user_email : user_email
 				} );
 
+				data = wc_meta_boxes_order_items.filter_data( 'add_coupon', data );
+
 				$.ajax( {
 					url:     woocommerce_admin_meta_boxes.ajax_url,
 					data:    data,
@@ -469,9 +487,16 @@ jQuery( function ( $ ) {
 					success: function( response ) {
 						if ( response.success ) {
 							$( '#woocommerce-order-items' ).find( '.inside' ).empty();
-								$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
-								wc_meta_boxes_order_items.reloaded_items();
-								wc_meta_boxes_order_items.unblock();
+							$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
+
+							// Update notes.
+							if ( response.data.notes_html ) {
+								$( 'ul.order_notes' ).empty();
+								$( 'ul.order_notes' ).append( $( response.data.notes_html ).find( 'li' ) );
+							}
+
+							wc_meta_boxes_order_items.reloaded_items();
+							wc_meta_boxes_order_items.unblock();
 						} else {
 							window.alert( response.data.error );
 						}
@@ -500,12 +525,21 @@ jQuery( function ( $ ) {
 				coupon : $this.data( 'code' )
 			} );
 
+			data = wc_meta_boxes_order_items.filter_data( 'remove_coupon', data );
+
 			$.post( woocommerce_admin_meta_boxes.ajax_url, data, function( response ) {
 				if ( response.success ) {
 					$( '#woocommerce-order-items' ).find( '.inside' ).empty();
-						$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
-						wc_meta_boxes_order_items.reloaded_items();
-						wc_meta_boxes_order_items.unblock();
+					$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
+
+					// Update notes.
+					if ( response.data.notes_html ) {
+						$( 'ul.order_notes' ).empty();
+						$( 'ul.order_notes' ).append( $( response.data.notes_html ).find( 'li' ) );
+					}
+
+					wc_meta_boxes_order_items.reloaded_items();
+					wc_meta_boxes_order_items.unblock();
 				} else {
 					window.alert( response.data.error );
 				}
@@ -587,19 +621,22 @@ jQuery( function ( $ ) {
 					amount  : value
 				} );
 
+				data = wc_meta_boxes_order_items.filter_data( 'add_fee', data );
+
 				$.post( woocommerce_admin_meta_boxes.ajax_url, data, function( response ) {
 					if ( response.success ) {
 						$( '#woocommerce-order-items' ).find( '.inside' ).empty();
-							$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
-							wc_meta_boxes_order_items.reloaded_items();
-							wc_meta_boxes_order_items.unblock();
-							window.wcTracks.recordEvent( 'order_edit_added_fee', {
-								order_id: data.post_id,
-								status: $( '#order_status' ).val()
-							} );
+						$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
+						wc_meta_boxes_order_items.reloaded_items();
+						wc_meta_boxes_order_items.unblock();
+						window.wcTracks.recordEvent( 'order_edit_added_fee', {
+							order_id: woocommerce_admin_meta_boxes.post_id,
+							status: $( '#order_status' ).val()
+						} );
 					} else {
 						window.alert( response.data.error );
 					}
+					wc_meta_boxes_order.init_tiptip();
 					wc_meta_boxes_order_items.unblock();
 				});
 			}
@@ -616,16 +653,19 @@ jQuery( function ( $ ) {
 				dataType : 'json'
 			};
 
+			data = wc_meta_boxes_order_items.filter_data( 'add_shipping', data );
+
 			$.post( woocommerce_admin_meta_boxes.ajax_url, data, function( response ) {
 				if ( response.success ) {
 					$( 'table.woocommerce_order_items tbody#order_shipping_line_items' ).append( response.data.html );
 					window.wcTracks.recordEvent( 'order_edit_add_shipping', {
-						order_id: data.post_id,
+						order_id: woocommerce_admin_meta_boxes.post_id,
 						status: $( '#order_status' ).val()
 					} );
 				} else {
 					window.alert( response.data.error );
 				}
+				wc_meta_boxes_order.init_tiptip();
 				wc_meta_boxes_order_items.unblock();
 			});
 
@@ -653,7 +693,17 @@ jQuery( function ( $ ) {
 		},
 
 		delete_item: function() {
-			var answer = window.confirm( woocommerce_admin_meta_boxes.remove_item_notice );
+			var notice = woocommerce_admin_meta_boxes.remove_item_notice;
+
+			if ( $( this ).parents( 'tbody#order_fee_line_items' ).length ) {
+				notice = woocommerce_admin_meta_boxes.remove_fee_notice;
+			}
+
+			if ( $( this ).parents( 'tbody#order_shipping_line_items' ).length ) {
+				notice = woocommerce_admin_meta_boxes.remove_shipping_notice;
+			}
+
+			var answer = window.confirm( notice );
 
 			if ( answer ) {
 				var $item         = $( this ).closest( 'tr.item, tr.fee, tr.shipping' );
@@ -672,6 +722,8 @@ jQuery( function ( $ ) {
 				if ( 'true' === $( 'button.cancel-action' ).attr( 'data-reload' ) ) {
 					data.items = $( 'table.woocommerce_order_items :input[name], .wc-order-totals-items :input[name]' ).serialize();
 				}
+
+				data = wc_meta_boxes_order_items.filter_data( 'delete_item', data );
 
 				$.ajax({
 					url:     woocommerce_admin_meta_boxes.ajax_url,
@@ -697,7 +749,7 @@ jQuery( function ( $ ) {
 					},
 					complete: function() {
 						window.wcTracks.recordEvent( 'order_edit_remove_item', {
-							order_id: data.post_id,
+							order_id: woocommerce_admin_meta_boxes.post_id,
 							status: $( '#order_status' ).val()
 						} );
 					}
@@ -717,6 +769,8 @@ jQuery( function ( $ ) {
 					security: woocommerce_admin_meta_boxes.order_item_nonce
 				};
 
+				data = wc_meta_boxes_order_items.filter_data( 'delete_tax', data );
+
 				$.ajax({
 					url:  woocommerce_admin_meta_boxes.ajax_url,
 					data: data,
@@ -724,9 +778,9 @@ jQuery( function ( $ ) {
 					success: function( response ) {
 						if ( response.success ) {
 							$( '#woocommerce-order-items' ).find( '.inside' ).empty();
-								$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
-								wc_meta_boxes_order_items.reloaded_items();
-								wc_meta_boxes_order_items.unblock();
+							$( '#woocommerce-order-items' ).find( '.inside' ).append( response.data.html );
+							wc_meta_boxes_order_items.reloaded_items();
+							wc_meta_boxes_order_items.unblock();
 						} else {
 							window.alert( response.data.error );
 						}
@@ -787,6 +841,8 @@ jQuery( function ( $ ) {
 					security: woocommerce_admin_meta_boxes.calc_totals_nonce
 				} );
 
+				data = wc_meta_boxes_order_items.filter_data( 'recalculate', data );
+
 				$( document.body ).trigger( 'order-totals-recalculate-before', data );
 
 				$.ajax({
@@ -805,8 +861,8 @@ jQuery( function ( $ ) {
 						$( document.body ).trigger( 'order-totals-recalculate-complete', response );
 
 						window.wcTracks.recordEvent( 'order_edit_recalc_totals', {
-							order_id: data.post_id,
-							OK_cancel: 'OK',
+							order_id: woocommerce_admin_meta_boxes.post_id,
+							ok_cancel: 'OK',
 							status: $( '#order_status' ).val()
 						} );
 					}
@@ -814,7 +870,7 @@ jQuery( function ( $ ) {
 			} else {
 				window.wcTracks.recordEvent( 'order_edit_recalc_totals', {
 					order_id: woocommerce_admin_meta_boxes.post_id,
-					OK_cancel: 'cancel',
+					ok_cancel: 'cancel',
 					status: $( '#order_status' ).val()
 				} );
 			}
@@ -829,6 +885,8 @@ jQuery( function ( $ ) {
 				action:   'woocommerce_save_order_items',
 				security: woocommerce_admin_meta_boxes.order_item_nonce
 			};
+
+			data = wc_meta_boxes_order_items.filter_data( 'save_line_items', data );
 
 			wc_meta_boxes_order_items.block();
 
@@ -856,7 +914,7 @@ jQuery( function ( $ ) {
 				},
 				complete: function() {
 					window.wcTracks.recordEvent( 'order_edit_save_line_items', {
-						order_id: data.post_id,
+						order_id: woocommerce_admin_meta_boxes.post_id,
 						status: $( '#order_status' ).val()
 					} );
 				}
@@ -928,6 +986,8 @@ jQuery( function ( $ ) {
 						security              : woocommerce_admin_meta_boxes.order_item_nonce
 					};
 
+					data = wc_meta_boxes_order_items.filter_data( 'do_refund', data );
+
 					$.ajax( {
 						url:     woocommerce_admin_meta_boxes.ajax_url,
 						data:    data,
@@ -970,6 +1030,8 @@ jQuery( function ( $ ) {
 						security:  woocommerce_admin_meta_boxes.order_item_nonce
 					};
 
+					data = wc_meta_boxes_order_items.filter_data( 'delete_refund', data );
+
 					$.ajax({
 						url:     woocommerce_admin_meta_boxes.ajax_url,
 						data:    data,
@@ -983,15 +1045,19 @@ jQuery( function ( $ ) {
 			},
 
 			input_changed: function() {
-				var refund_amount = 0;
-				var $items        = $( '.woocommerce_order_items' ).find( 'tr.item, tr.fee, tr.shipping' );
+				var refund_amount     = 0;
+				var $items            = $( '.woocommerce_order_items' ).find( 'tr.item, tr.fee, tr.shipping' );
+				var round_at_subtotal = 'yes' === woocommerce_admin_meta_boxes.round_at_subtotal;
 
 				$items.each(function() {
 					var $row               = $( this );
 					var refund_cost_fields = $row.find( '.refund input:not(.refund_order_item_qty)' );
 
 					refund_cost_fields.each(function( index, el ) {
-						refund_amount += parseFloat( accounting.unformat( $( el ).val() || 0, woocommerce_admin.mon_decimal_point ) );
+						var field_amount = accounting.unformat( $( el ).val() || 0, woocommerce_admin.mon_decimal_point );
+						refund_amount += parseFloat( round_at_subtotal ?
+							field_amount :
+							accounting.formatNumber( field_amount, woocommerce_admin_meta_boxes.currency_format_num_decimals, '' ) );
 					});
 				});
 
@@ -1045,13 +1111,13 @@ jQuery( function ( $ ) {
 					) / qty;
 
 					if ( 0 < unit_total_tax ) {
-						var round_at_subtotal = 'yes' === woocommerce_admin_meta_boxes.round_at_subtotal;
-						var precision         = woocommerce_admin_meta_boxes[
-							round_at_subtotal ? 'rounding_precision' : 'currency_format_num_decimals'
-						];
 
 						$refund_line_total_tax.val(
-							parseFloat( accounting.formatNumber( unit_total_tax * refund_qty, precision, '' ) )
+							parseFloat( accounting.formatNumber(
+								unit_total_tax * refund_qty,
+								woocommerce_admin_meta_boxes.rounding_precision,
+								''
+							) )
 								.toString()
 								.replace( '.', woocommerce_admin.mon_decimal_point )
 						).trigger( 'change' );
@@ -1085,20 +1151,20 @@ jQuery( function ( $ ) {
 				var index  = $items.find('tr').length + 1;
 				var $row   = '<tr data-meta_id="0">' +
 					'<td>' +
-						'<input type="text" maxlength="255" placeholder="' +
-						woocommerce_admin_meta_boxes_order.placeholder_name +
-						'" name="meta_key[' + $item.attr( 'data-order_item_id' ) +
-						'][new-' + index + ']" />' +
-						'<textarea placeholder="' +
-						woocommerce_admin_meta_boxes_order.placeholder_value +
-						'" name="meta_value[' +
-						$item.attr( 'data-order_item_id' ) +
-						'][new-' +
-						index +
-						']"></textarea>' +
+					'<input type="text" maxlength="255" placeholder="' +
+					woocommerce_admin_meta_boxes_order.placeholder_name +
+					'" name="meta_key[' + $item.attr( 'data-order_item_id' ) +
+					'][new-' + index + ']" />' +
+					'<textarea placeholder="' +
+					woocommerce_admin_meta_boxes_order.placeholder_value +
+					'" name="meta_value[' +
+					$item.attr( 'data-order_item_id' ) +
+					'][new-' +
+					index +
+					']"></textarea>' +
 					'</td>' +
 					'<td width="1%"><button class="remove_order_item_meta button">&times;</button></td>' +
-				'</tr>';
+					'</tr>';
 				$items.append( $row );
 
 				return false;
@@ -1182,6 +1248,8 @@ jQuery( function ( $ ) {
 					data.items = $( 'table.woocommerce_order_items :input[name], .wc-order-totals-items :input[name]' ).serialize();
 				}
 
+				data = wc_meta_boxes_order_items.filter_data( 'add_items', data );
+
 				$.ajax({
 					type: 'POST',
 					url: woocommerce_admin_meta_boxes.ajax_url,
@@ -1206,7 +1274,7 @@ jQuery( function ( $ ) {
 					},
 					complete: function() {
 						window.wcTracks.recordEvent( 'order_edit_add_products', {
-							order_id: data.post_id,
+							order_id: woocommerce_admin_meta_boxes.post_id,
 							status: $( '#order_status' ).val()
 						} );
 					},
@@ -1238,6 +1306,8 @@ jQuery( function ( $ ) {
 						security: woocommerce_admin_meta_boxes.order_item_nonce
 					};
 
+					data = wc_meta_boxes_order_items.filter_data( 'add_tax', data );
+
 					$.ajax({
 						url      : woocommerce_admin_meta_boxes.ajax_url,
 						data     : data,
@@ -1255,7 +1325,7 @@ jQuery( function ( $ ) {
 						},
 						complete: function() {
 							window.wcTracks.recordEvent( 'order_edit_add_tax', {
-								order_id: data.post_id,
+								order_id: woocommerce_admin_meta_boxes.post_id,
 								status: $( '#order_status' ).val()
 							} );
 						}
@@ -1320,7 +1390,7 @@ jQuery( function ( $ ) {
 				$( '#woocommerce-order-notes' ).unblock();
 				$( '#add_order_note' ).val( '' );
 				window.wcTracks.recordEvent( 'order_edit_add_order_note', {
-					order_id: data.post_id,
+					order_id: woocommerce_admin_meta_boxes.post_id,
 					note_type: data.note_type || 'private',
 					status: $( '#order_status' ).val()
 				} );
@@ -1367,12 +1437,18 @@ jQuery( function ( $ ) {
 				.on( 'click', '#copy-download-link', this.copy_link )
 				.on( 'aftercopy', '#copy-download-link', this.copy_success )
 				.on( 'aftercopyfailure', '#copy-download-link', this.copy_fail );
+
+			// Work around WP's callback for '.handlediv' hiding the containing WP metabox instead of just the WC one.
+			$( '.order_download_permissions .wc-metabox .handlediv' ).on( 'click', function( e ) {
+				e.stopImmediatePropagation();
+				$( this ).closest( 'h3' ).trigger( 'click' );
+			} );
 		},
 
 		grant_access: function() {
 			var products = $( '#grant_access_id' ).val();
 
-			if ( ! products ) {
+			if ( ! products || 0 === products.length ) {
 				return;
 			}
 
@@ -1394,7 +1470,7 @@ jQuery( function ( $ ) {
 
 			$.post( woocommerce_admin_meta_boxes.ajax_url, data, function( response ) {
 
-				if ( response ) {
+				if ( response && -1 !== parseInt( response ) ) {
 					$( '.order_download_permissions .wc-metaboxes' ).append( response );
 				} else {
 					window.alert( woocommerce_admin_meta_boxes.i18n_download_permission_fail );
@@ -1487,8 +1563,177 @@ jQuery( function ( $ ) {
 		}
 	};
 
+	/**
+	 * Configures ajax request for custom metadata box in order edit screen.
+	 */
+	var wc_meta_boxes_order_custom_meta = {
+		init: function() {
+			let select2_args;
+			let metakey_select;
+
+			if ( ! $('#order_custom').length ) {
+				return;
+			}
+
+			$( '#order_custom #the-list' ).wpList( {
+				/**
+				 * Add order id and action to the request.
+				 */
+				addBefore: function( settings ) {
+					settings.data += "&order_id=" + woocommerce_admin_meta_boxes.post_id + "&action=woocommerce_order_add_meta";
+					return settings;
+				},
+
+				addAfter: function() {
+					$('table#list-table').show();
+				},
+
+				delBefore: function( settings, el ) {
+					if (typeof select2_args.ajax == 'undefined') {
+						// If the list of meta keys have already loaded, prepend the deleted key to the list if it isn't already present.
+						let meta_key = $(el).find('#meta-' + settings.data.id + '-key').val();
+						if (metakey_select.find('option[value=\'' + meta_key + '\']').length === 0) {
+							let newOption = new Option(meta_key, meta_key, false, false);
+							metakey_select.prepend(newOption);
+						}
+					}
+					settings.data.order_id = woocommerce_admin_meta_boxes.post_id;
+					settings.data.action   = 'woocommerce_order_delete_meta';
+					return settings;
+				},
+
+			});
+
+			$( '#order_custom #metakeyselect').filter( function() {
+				metakey_select = $(this);
+				if(metakey_select.hasClass('enhanced)')) {
+					return;
+				}
+
+				select2_args = {
+					allowClear: !!metakey_select.data('allow_clear'),
+					placeholder: metakey_select.data('placeholder'),
+					ajax: {
+						url: wc_enhanced_select_params.ajax_url,
+						dataType: 'json',
+						delay: 500,
+						data: function (params) {
+							return {
+								order_id: metakey_select.data('order_id'),
+								action: 'woocommerce_json_search_order_metakeys',
+								security: wc_enhanced_select_params.search_order_metakeys_nonce
+							};
+						},
+						success: function (data) {
+							let terms = [];
+							if (data) {
+								$.each(data, function (id, term) {
+									terms.push({
+										id: term,
+										text: term,
+									});
+								});
+							}
+							// Reinitialize with the loaded data to avoid continued ajax requests when searching since
+							// we are not using the search term to filter the list on the backend.
+							select2_args.data = terms;
+							delete select2_args.ajax;
+							metakey_select.selectWoo(select2_args).select2('open');
+							return false;
+						},
+						cache: true
+					},
+					language: {
+						errorLoading: function () {
+							// Workaround for https://github.com/select2/select2/issues/4355 instead of i18n_ajax_error.
+							return wc_enhanced_select_params.i18n_searching;
+						},
+						inputTooLong: function (args) {
+							var overChars = args.input.length - args.maximum;
+
+							if (1 === overChars) {
+								return wc_enhanced_select_params.i18n_input_too_long_1;
+							}
+
+							return wc_enhanced_select_params.i18n_input_too_long_n.replace('%qty%', overChars);
+						},
+						inputTooShort: function (args) {
+							var remainingChars = args.minimum - args.input.length;
+
+							if (1 === remainingChars) {
+								return wc_enhanced_select_params.i18n_input_too_short_1;
+							}
+
+							return wc_enhanced_select_params.i18n_input_too_short_n.replace('%qty%', remainingChars);
+						},
+						loadingMore: function () {
+							return wc_enhanced_select_params.i18n_load_more;
+						},
+						maximumSelected: function (args) {
+							if (args.maximum === 1) {
+								return wc_enhanced_select_params.i18n_selection_too_long_1;
+							}
+
+							return wc_enhanced_select_params.i18n_selection_too_long_n.replace('%qty%', args.maximum);
+						},
+						noResults: function () {
+							return wc_enhanced_select_params.i18n_no_matches;
+						},
+						searching: function () {
+							return wc_enhanced_select_params.i18n_searching;
+						}
+					}
+
+				};
+
+				// Work around to deal with the lack of responsive support from Select2 until a better replacement can be integrated.
+				let resizeTimer;
+				$( window ).on( 'resize', function () {
+					cancelAnimationFrame( resizeTimer );
+					resizeTimer = requestAnimationFrame( function () {
+						metakey_select.selectWoo( select2_args );
+					} );
+				});
+
+				metakey_select.selectWoo(select2_args).addClass('enhanced');
+			});
+		}
+	};
+
 	wc_meta_boxes_order.init();
 	wc_meta_boxes_order_items.init();
 	wc_meta_boxes_order_notes.init();
 	wc_meta_boxes_order_downloads.init();
+	wc_meta_boxes_order_custom_meta.init();
+
+	/**
+	 * Event listeners to allow third-party plugins to reinitialize WooCommerce order meta boxes
+	 * after dynamically modifying their content.
+	 *
+	 * Usage Example:
+	 *
+	 * // Reinitialize the Order Data Panel:
+	 * window.dispatchEvent(new CustomEvent("wc_meta_boxes_order_init"));
+	 *
+	 * // Reinitialize Order Items Panel:
+	 * window.dispatchEvent(new CustomEvent("wc_meta_boxes_order_items_init"));
+	 *
+	 * These events ensure that order meta boxes can be dynamically updated
+	 * and properly reinitialized as needed.
+	 */
+	window.addEventListener('wc_meta_boxes_order_init', (e) => {
+		wc_meta_boxes_order.init()
+	});
+	window.addEventListener('wc_meta_boxes_order_items_init', (e) => {
+		wc_meta_boxes_order_items.init()
+	});
+	window.addEventListener('wc_meta_boxes_order_notes_init', (e) => {
+		wc_meta_boxes_order_notes.init()
+	});
+	window.addEventListener('wc_meta_boxes_order_downloads_init', (e) => {
+		wc_meta_boxes_order_downloads.init()
+	});
+	window.addEventListener('wc_meta_boxes_order_custom_meta_init', (e) => {
+		wc_meta_boxes_order_custom_meta.init()
+	});
 });
