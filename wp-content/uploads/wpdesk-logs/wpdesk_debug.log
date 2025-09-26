@@ -1,0 +1,2 @@
+[2020-06-17 16:25:06] wpdesk.DEBUG: Sender payload: {"click_action":"plugin_deactivation","plugin":"flexible-shipping-fedex\/flexible-shipping-fedex.php","plugin_name":"Flexible Shipping For FedEx","reason":"other"} {"source":"wpdesk-sender"} []
+[2020-06-17 16:25:08] wpdesk.DEBUG: Sender response: {"headers":[],"body":"","response":{"code":false,"message":false},"cookies":[],"http_response":null} {"source":"wpdesk-sender"} []
